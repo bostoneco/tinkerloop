@@ -1,92 +1,96 @@
 from __future__ import annotations
 
+import json
 import os
 import re
+import urllib.error
+import urllib.request
 from pathlib import Path
 
-from tinkerloop.adapters import PythonAppAdapter
+from tinkerloop.adapters import CommandAppAdapter
 from tinkerloop.models import PreflightResult, RuntimeSpec
 
 
-DEFAULT_TRACE_TARGETS = [
-    "src.orchestrator.loop:execute_tool",
-    "src.orchestrator.providers.anthropic_provider:execute_tool",
-    "src.orchestrator.providers.gemini_provider:execute_tool",
-]
-
-
-class MoppaAdapter(PythonAppAdapter):
+class MoppaAdapter(CommandAppAdapter):
     def __init__(self, *, repo_root: Path) -> None:
-        super().__init__(
-            handler_path="src.orchestrator.loop:handle_user_message",
-            patch_targets=DEFAULT_TRACE_TARGETS,
-            repo_root=repo_root,
-            env_files=[repo_root / ".env"],
-        )
+        self.repo_root = repo_root
         self._selected_runtime: RuntimeSpec | None = None
+        self._repo_env = self._read_env_file(repo_root / ".env")
+        runner = repo_root / "scripts/tinkerloop_turn.py"
+        python_bin = repo_root / ".venv/bin/python"
+        super().__init__(
+            command_builder=lambda user_id, user_text, correlation_id: [
+                str(python_bin),
+                str(runner),
+                "--user-id",
+                user_id,
+                "--correlation-id",
+                correlation_id,
+                "--message",
+                user_text,
+            ],
+            workdir=repo_root,
+            env_files=[repo_root / ".env"],
+            env_overrides=self._default_env_overrides(repo_root),
+            timeout_seconds=90,
+        )
 
     def preflight(self, *, user_id: str) -> PreflightResult:
-        self._prepare()
-        if not (os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_CONNECTION_STRING")):
+        api_base = self._api_base_url()
+        if not api_base:
             return PreflightResult(
                 status="blocked_config",
-                summary="Moppa database configuration is missing. Set DATABASE_URL or POSTGRES_CONNECTION_STRING in the target repo environment.",
+                summary="Moppa API_BASE_URL is missing in the target repo environment.",
             )
-
-        try:
-            user = self._load_moppa_user(user_id)
-        except Exception as exc:
+        runner = self.repo_root / "scripts/tinkerloop_turn.py"
+        if not runner.is_file():
             return PreflightResult(
-                status="blocked_runtime",
-                summary=f"Moppa user lookup failed: {type(exc).__name__}: {exc}",
+                status="blocked_config",
+                summary=f"Moppa runner script is missing: {runner}",
             )
-
-        if not user:
+        python_bin = self.repo_root / ".venv/bin/python"
+        if not python_bin.is_file():
             return PreflightResult(
-                status="blocked_runtime",
-                summary=f"Moppa user `{user_id}` was not found in the target repo runtime.",
-                details={"user_id": user_id},
+                status="blocked_config",
+                summary=f"Moppa virtualenv is missing: {python_bin}",
             )
 
-        if not user.get("gmail_tokens"):
+        mailbox = self._proxy_tool("mailbox", user_id, {"scope": "overview"})
+        status = str(mailbox.get("status") or "")
+        if status == "ok":
             return PreflightResult(
-                status="blocked_auth",
-                summary=f"Moppa user `{user_id}` is not connected to Gmail. Connect the account in Moppa first, then rerun Tinkerloop.",
-                details={"user_id": user_id},
+                status="ready",
+                summary=f"Moppa user `{user_id}` is connected and ready through deployed tool proxy.",
+                details={"user_id": user_id, "api_base_url": api_base},
             )
-
-        try:
-            creds = self._load_moppa_gmail_credentials(user_id)
-        except Exception as exc:
-            return PreflightResult(
-                status="blocked_runtime",
-                summary=f"Moppa Gmail credential check failed: {type(exc).__name__}: {exc}",
-            )
-
-        if not creds:
-            return PreflightResult(
-                status="blocked_auth",
-                summary=f"Moppa could not load usable Gmail credentials for user `{user_id}`. Reconnect Gmail in Moppa, then rerun Tinkerloop.",
-                details={"user_id": user_id},
-            )
-
+        if status in {"failed_auth", "error"}:
+            error_text = str(mailbox.get("error") or "")
+            if "No Gmail credentials" in error_text or status == "failed_auth":
+                return PreflightResult(
+                    status="blocked_auth",
+                    summary=(
+                        f"Moppa could not load Gmail credentials for `{user_id}` via deployed tool proxy. "
+                        "For the current stopgap path, use a Moppa MCP-connected user id and complete Gmail OAuth for that user first."
+                    ),
+                    details={"user_id": user_id, "api_base_url": api_base},
+                )
         return PreflightResult(
-            status="ready",
-            summary=f"Moppa user `{user_id}` is connected and ready.",
-            details={
-                "user_id": user_id,
-                "email": user.get("username") or user.get("email") or "",
-                "status": user.get("status") or "",
-            },
+            status="blocked_runtime",
+            summary=(
+                f"Moppa readiness check failed for `{user_id}`: "
+                f"{mailbox.get('user_safe_summary') or mailbox.get('error') or status or 'unknown error'}"
+            ),
+            details={"user_id": user_id, "api_base_url": api_base, "payload": mailbox},
         )
 
     def runtime_spec(self, *, user_id: str) -> RuntimeSpec | None:
-        env_values = self._read_env_values()
         provider_value = (
-            os.environ.get("MOPPA_MODEL_PROVIDER") or env_values.get("MOPPA_MODEL_PROVIDER") or ""
+            os.environ.get("MOPPA_MODEL_PROVIDER")
+            or self._repo_env.get("MOPPA_MODEL_PROVIDER")
+            or ""
         ).strip()
         model_value = (
-            os.environ.get("MOPPA_CHAT_MODEL") or env_values.get("MOPPA_CHAT_MODEL") or ""
+            os.environ.get("MOPPA_CHAT_MODEL") or self._repo_env.get("MOPPA_CHAT_MODEL") or ""
         ).strip()
 
         default_provider = self._repo_default_provider()
@@ -98,9 +102,7 @@ class MoppaAdapter(PythonAppAdapter):
         inferred_provider = self._infer_provider_from_model(model_value)
 
         if provider_value and model_value:
-            if not provider_known:
-                return None
-            if inferred_provider and inferred_provider != normalized_provider:
+            if not provider_known or (inferred_provider and inferred_provider != normalized_provider):
                 return None
             return RuntimeSpec(
                 provider=normalized_provider,
@@ -146,12 +148,13 @@ class MoppaAdapter(PythonAppAdapter):
         return None
 
     def runtime_candidates(self, *, user_id: str) -> list[RuntimeSpec]:
-        env_values = self._read_env_values()
         provider_value = (
-            os.environ.get("MOPPA_MODEL_PROVIDER") or env_values.get("MOPPA_MODEL_PROVIDER") or ""
+            os.environ.get("MOPPA_MODEL_PROVIDER")
+            or self._repo_env.get("MOPPA_MODEL_PROVIDER")
+            or ""
         ).strip()
         model_value = (
-            os.environ.get("MOPPA_CHAT_MODEL") or env_values.get("MOPPA_CHAT_MODEL") or ""
+            os.environ.get("MOPPA_CHAT_MODEL") or self._repo_env.get("MOPPA_CHAT_MODEL") or ""
         ).strip()
         default_provider = self._repo_default_provider()
         default_models = self._repo_default_models()
@@ -218,12 +221,14 @@ class MoppaAdapter(PythonAppAdapter):
         return deduped
 
     def select_runtime(self, runtime: RuntimeSpec) -> None:
-        os.environ["MOPPA_MODEL_PROVIDER"] = runtime.provider
-        os.environ["MOPPA_CHAT_MODEL"] = runtime.model
+        self.env_overrides["MOPPA_MODEL_PROVIDER"] = runtime.provider
+        self.env_overrides["MOPPA_CHAT_MODEL"] = runtime.model
         self._selected_runtime = runtime
 
     def run_metadata(self) -> dict[str, object]:
         metadata = super().run_metadata()
+        metadata["repo_root"] = str(self.repo_root)
+        metadata["api_base_url"] = self._api_base_url()
         if self._selected_runtime:
             metadata["selected_runtime"] = {
                 "provider": self._selected_runtime.provider,
@@ -234,25 +239,59 @@ class MoppaAdapter(PythonAppAdapter):
             }
         return metadata
 
-    def _load_moppa_user(self, user_id: str):
-        return self._load_target_attr("src.storage.user_facade:get_user")(user_id)
+    def _proxy_tool(self, tool_name: str, user_id: str, args: dict[str, object]) -> dict[str, object]:
+        body = json.dumps({"tool_name": tool_name, "user_id": user_id, "args": args}).encode()
+        req = urllib.request.Request(
+            f"{self._api_base_url().rstrip('/')}/mcp/tool",
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                payload = resp.read().decode()
+        except urllib.error.HTTPError as exc:
+            payload = exc.read().decode()
+        try:
+            data = json.loads(payload)
+            return data if isinstance(data, dict) else {"status": "error", "error": "invalid_payload"}
+        except json.JSONDecodeError:
+            return {"status": "error", "error": "invalid_payload", "user_safe_summary": payload[:300]}
 
-    def _load_moppa_gmail_credentials(self, user_id: str):
-        return self._load_target_attr("src.utils.auth:get_gmail_credentials")(user_id)
+    def _api_base_url(self) -> str:
+        return (
+            os.environ.get("API_BASE_URL")
+            or self.env_overrides.get("API_BASE_URL")
+            or self._repo_env.get("API_BASE_URL")
+            or ""
+        ).strip()
+
+    def _default_env_overrides(self, repo_root: Path) -> dict[str, str]:
+        overrides = {
+            "DATABASE_URL": f"sqlite:///{repo_root / '.tinkerloop_local.db'}",
+            "MOPPA_DEBUG_SKIP_FASTPATH": "1",
+            "TINKERLOOP_LOCAL_PROXY_MODE": "1",
+        }
+        api_base = (self._repo_env.get("API_BASE_URL") or "").strip()
+        if api_base:
+            overrides["API_BASE_URL"] = api_base
+        aws_profile = (self._repo_env.get("AWS_PROFILE") or "").strip()
+        if aws_profile:
+            overrides["AWS_PROFILE"] = aws_profile
+        return overrides
 
     def _repo_default_provider(self) -> str:
-        loop_path = (self.repo_root or Path.cwd()) / "src/orchestrator/loop.py"
+        loop_path = self.repo_root / "src/orchestrator/loop.py"
         text = loop_path.read_text(encoding="utf-8")
         match = re.search(r'MOPPA_MODEL_PROVIDER",\s*"([^"]+)"', text)
         return self._normalize_provider(match.group(1)) if match else ""
 
     def _repo_default_models(self) -> dict[str, str]:
-        repo_root = self.repo_root or Path.cwd()
         bedrock_default = self._extract_default_model(
-            repo_root / "src/orchestrator/providers/anthropic_provider.py"
+            self.repo_root / "src/orchestrator/providers/anthropic_provider.py"
         )
         gemini_default = self._extract_default_model(
-            repo_root / "src/orchestrator/providers/gemini_provider.py"
+            self.repo_root / "src/orchestrator/providers/gemini_provider.py"
         )
         models: dict[str, str] = {}
         if bedrock_default:
@@ -291,12 +330,25 @@ class MoppaAdapter(PythonAppAdapter):
             return "bedrock"
         return ""
 
+    @staticmethod
+    def _read_env_file(path: Path) -> dict[str, str]:
+        values: dict[str, str] = {}
+        if not path.is_file():
+            return values
+        for raw_line in path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key:
+                values[key] = value
+        return values
+
 
 def create_adapter() -> MoppaAdapter:
     repo_root = Path(
-        os.environ.get(
-            "TINKERLOOP_MOPPA_REPO",
-            Path(__file__).resolve().parents[3] / "moppa",
-        )
+        os.environ.get("TINKERLOOP_MOPPA_REPO", Path(__file__).resolve().parents[3] / "moppa")
     ).resolve()
     return MoppaAdapter(repo_root=repo_root)

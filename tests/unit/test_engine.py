@@ -38,6 +38,11 @@ class DummyAdapter(AppAdapter):
         return self.recorder
 
 
+class FailingAdapter(AppAdapter):
+    def send_user_turn(self, *, user_id: str, user_text: str, correlation_id: str) -> str:
+        raise RuntimeError("boom")
+
+
 def test_dict_contains_handles_nested_subsets():
     assert dict_contains({"a": 1, "b": {"c": True, "d": 2}}, {"b": {"c": True}})
     assert not dict_contains({"a": 1}, {"b": 2})
@@ -115,6 +120,20 @@ def test_run_scenario_uses_adapter_and_checks():
 
     assert result.passed is True
     assert result.turns[0].tool_traces[0].tool_name == "cleanup"
+
+
+def test_run_scenario_records_adapter_failure_as_failed_turn():
+    scenario = Scenario(
+        scenario_id="cleanup_preview_first_unit",
+        description="demo",
+        turns=[ScenarioTurn(user="Preview the first cleanup unit", checks=[])],
+    )
+
+    result = run_scenario(scenario, adapter=FailingAdapter(), user_id="u1")
+
+    assert result.passed is False
+    assert result.turns[0].checks[0].check_type == "adapter_runtime"
+    assert "boom" in result.turns[0].checks[0].detail
 
 
 def test_build_report_payload_collects_failures():

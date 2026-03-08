@@ -25,6 +25,9 @@ Adapter responsibilities:
 - expose trace recording around configured tool execution points
 - provide optional metadata for reports
 
+For stopgap local/staging integrations, the adapter may launch a target-owned runner command.
+For long-term integrations, the target repo should expose a dedicated secure Tinkerloop driver contract.
+
 ### Scenario Files
 
 Scenario files are JSON and define:
@@ -58,9 +61,31 @@ Current adapter contract also supports:
 - `runtime_candidates(user_id=...)`
 - `select_runtime(runtime)`
 
+The second adapter implementation is `CommandAppAdapter`.
+
+It supports target-owned runner commands that:
+- accept `user_id`, `user_text`, and `correlation_id`
+- write the assistant reply to stdout
+- optionally write tool traces to a file declared by `TINKERLOOP_TRACE_FILE`
+
+This is the current Moppa stopgap path.
+
 ## Why This Shape
 
 This keeps Tinkerloop:
 - generic enough to reuse across apps
 - concrete enough to be immediately useful
 - small enough to audit and extend
+
+## Security Direction
+
+The long-term contract is stricter than the current stopgap.
+
+Tinkerloop should eventually integrate with target repos through a fixed target-driver contract:
+- target-owned
+- non-prod only
+- infrastructure-authenticated
+- no arbitrary code execution
+- no public backdoor endpoints
+
+For AWS apps, the preferred direction is a dedicated non-prod driver function invoked through IAM.
