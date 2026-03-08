@@ -277,7 +277,7 @@ Goal:
 - support the developer side of `test -> diagnose -> patch -> rerun`
 
 Status:
-- not implemented
+- partially implemented
 
 Required behavior:
 - select failed scenarios only
@@ -285,6 +285,16 @@ Required behavior:
 - support repo patch/apply workflow against the target repo
 - rerun only affected scenarios first, then full regression set
 - always keep a human gate before pushing or deploying
+
+Implemented now:
+- failed-scenario reruns from prior reports
+- compact diagnosis artifact for failed scenarios
+- tag-based scoped runs for limited feature slices
+
+Still missing:
+- target-repo patch/apply workflow
+- explicit human approval flow for mutations
+- regression sequencing beyond manual reruns
 
 Important constraint:
 - this phase mutates the target repo, not the Tinkerloop repo

@@ -199,6 +199,12 @@ def main() -> int:
         help="Specific scenario id to run (repeatable)",
     )
     parser.add_argument(
+        "--tag",
+        action="append",
+        default=[],
+        help="Run only scenarios containing one of these tags (repeatable)",
+    )
+    parser.add_argument(
         "--allow-destructive",
         action="store_true",
         help="Allow scenarios marked destructive",
@@ -239,17 +245,21 @@ def main() -> int:
     metadata.update(runtime_metadata)
     scenarios = load_scenarios(args.scenarios)
     scenario_filter = set(args.scenario) if args.scenario else set()
+    tag_filter = set(args.tag) if args.tag else set()
     if args.failed_from:
         failed_ids = load_failed_scenario_ids(args.failed_from)
         scenario_filter.update(failed_ids)
         metadata["rerun_failed_from"] = str(args.failed_from)
         metadata["rerun_failed_scenario_ids"] = sorted(failed_ids)
+    if tag_filter:
+        metadata["tag_filter"] = sorted(tag_filter)
     results = run_scenarios(
         scenarios,
         adapter=adapter,
         user_id=str(args.user_id),
         allow_destructive=bool(args.allow_destructive),
         scenario_filter=scenario_filter or None,
+        tag_filter=tag_filter or None,
     )
     report_file = write_report(results, output_dir=args.report_dir, metadata=metadata)
     print(summarize_results(results))
