@@ -41,7 +41,18 @@ Required:
 Status:
 - partial
 
-## Phase T5: Improvement Loop
+## Phase T5: Target Readiness And Runtime Fidelity
+
+Required:
+- adapter preflight before scenarios run
+- repo-bounded inner-model resolution
+- interactive candidate selection when runtime is ambiguous
+- explicit overrides for provider/model
+
+Status:
+- partially implemented
+
+## Phase T6: Improvement Loop
 
 Required:
 - structured handoff for outer developer agent

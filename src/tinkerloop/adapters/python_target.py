@@ -108,6 +108,20 @@ class PythonAppAdapter(AppAdapter):
             "repo_root": str(self.repo_root) if self.repo_root else "",
         }
 
+    def _load_target_attr(self, import_path: str) -> Any:
+        self._prepare()
+        module_name, _, attr_name = import_path.partition(":")
+        if not module_name or not attr_name:
+            raise ValueError(f"Invalid import path: {import_path}")
+        module = importlib.import_module(module_name)
+        return getattr(module, attr_name)
+
+    def _read_env_values(self) -> dict[str, str]:
+        values: dict[str, str] = {}
+        for env_file in self.env_files:
+            values.update(self._parse_env_file(env_file))
+        return values
+
     def _prepare(self) -> None:
         if self._prepared:
             return
@@ -142,3 +156,19 @@ class PythonAppAdapter(AppAdapter):
             value = value.strip().strip('"').strip("'")
             if key and key not in os.environ:
                 os.environ[key] = value
+
+    @staticmethod
+    def _parse_env_file(path: Path) -> dict[str, str]:
+        values: dict[str, str] = {}
+        if not path.is_file():
+            return values
+        for raw_line in path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key:
+                values[key] = value
+        return values
