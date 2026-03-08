@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager
 from typing import Any
 
-from tinkerloop.models import ToolTrace
+from tinkerloop.models import PreflightResult, RuntimeSpec, ToolTrace
 
 
 class TraceRecorder(AbstractContextManager["TraceRecorder"]):
@@ -22,6 +22,18 @@ class AppAdapter(ABC):
     @abstractmethod
     def send_user_turn(self, *, user_id: str, user_text: str, correlation_id: str) -> str:
         raise NotImplementedError
+
+    def preflight(self, *, user_id: str) -> PreflightResult:
+        return PreflightResult(status="ready", summary="Adapter is ready.")
+
+    def runtime_spec(self, *, user_id: str) -> RuntimeSpec | None:
+        return None
+
+    def runtime_candidates(self, *, user_id: str) -> list[RuntimeSpec]:
+        return []
+
+    def select_runtime(self, runtime: RuntimeSpec) -> None:
+        return None
 
     def trace_recorder(self) -> TraceRecorder:
         return TraceRecorder()

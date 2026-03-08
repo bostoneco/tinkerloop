@@ -18,6 +18,9 @@ It does not know app-specific business logic.
 The adapter is the only boundary between Tinkerloop and the target app.
 
 Adapter responsibilities:
+- preflight target readiness
+- resolve the target app's inner orchestrator model from the target repo boundary
+- apply explicit runtime selection when needed
 - call the app's user-turn entrypoint
 - expose trace recording around configured tool execution points
 - provide optional metadata for reports
@@ -48,6 +51,12 @@ It supports target apps that expose a Python callable such as:
 - `handle_user_message(user_id=..., user_text=..., correlation_id=...)`
 
 It can also patch target functions like `execute_tool(...)` to collect traces.
+
+Current adapter contract also supports:
+- `preflight(user_id=...)`
+- `runtime_spec(user_id=...)`
+- `runtime_candidates(user_id=...)`
+- `select_runtime(runtime)`
 
 ## Why This Shape
 

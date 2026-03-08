@@ -5,6 +5,27 @@ from typing import Any
 
 
 @dataclass
+class PreflightResult:
+    status: str
+    summary: str
+    details: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def ready(self) -> bool:
+        return self.status == "ready"
+
+
+@dataclass
+class RuntimeSpec:
+    provider: str
+    model: str
+    source: str
+    confidence: str
+    reason: str = ""
+    details: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class ScenarioCheck:
     type: str
     values: list[str] = field(default_factory=list)

@@ -22,6 +22,8 @@ Tinkerloop plays the role of:
 Current MVP:
 - load multi-turn scenario files
 - run them against a target app adapter
+- preflight the target app before scenario execution
+- resolve the target app's inner runtime from the target repo boundary
 - trace tool calls by patching configured execution points
 - evaluate deterministic checks
 - write JSON reports for failures and regressions
@@ -44,11 +46,21 @@ python -m tinkerloop.cli \
   --scenarios examples/moppa/scenarios
 ```
 
+If the adapter cannot resolve one inner model confidently, Tinkerloop will prompt for a repo-derived candidate in interactive mode. In non-interactive mode, pass explicit overrides:
+
+```bash
+python -m tinkerloop.cli \
+  --adapter examples.moppa.adapter:create_adapter \
+  --user-id 5291202790 \
+  --inner-provider bedrock \
+  --inner-model us.amazon.nova-pro-v1:0
+```
+
 ## Repo Layout
 
 - `src/tinkerloop/`: reusable harness engine and adapter interfaces
 - `examples/moppa/`: example adapter and example scenarios for Moppa
-- `docs/`: charter, architecture, and MVP plan
+- `docs/`: charter, architecture, MVP plan, and implementation handoff
 - `tests/`: Tinkerloop unit tests
 
 ## Design Rules
