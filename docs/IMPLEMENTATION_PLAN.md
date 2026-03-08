@@ -112,8 +112,6 @@ Current example integration:
 
 Not implemented yet:
 - outer developer loop with structured patch workflow
-- stable failure artifact schema beyond raw JSON report output
-- rerun subsets tied to previous failures
 - judge expansion beyond deterministic checks
 - target repo mutation workflow with explicit human gate
 
@@ -248,7 +246,7 @@ Goal:
 - make failures easy for a developer or outer model to act on
 
 Status:
-- partial
+- implemented for stable JSON report artifacts and failed-scenario extraction
 
 Required behavior:
 - stable artifact schema for:
@@ -260,8 +258,18 @@ Required behavior:
   - preflight state
 - stable artifact paths for reruns and automation
 
+Implemented now:
+- timestamped report files
+- stable `latest.json`
+- stable `latest-failures.json`
+- failed-scenario ids recorded in report summaries
+- failed-scenario ids loadable from a prior report file or report directory
+
+Still missing:
+- richer diagnosis payload tailored for outer developer-agent handoff
+
 Acceptance:
-- a failing run produces enough structured data for an outer agent to diagnose the problem without re-parsing raw logs
+- a failing run produces stable artifacts with enough structure for reruns and automation
 
 ## Phase T8: Outer Developer Loop
 

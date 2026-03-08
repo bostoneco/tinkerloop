@@ -39,7 +39,7 @@ Required:
 - artifact paths stable enough for automation
 
 Status:
-- partial
+- implemented for stable reports and failed-scenario reruns
 
 ## Phase T5: Target Readiness And Runtime Fidelity
 

@@ -27,6 +27,7 @@ Current MVP:
 - trace tool calls by patching configured execution points
 - evaluate deterministic checks
 - write JSON reports for failures and regressions
+- rerun only failed scenarios from a prior report
 
 Not in scope yet:
 - automatic patch generation
@@ -54,6 +55,15 @@ python -m tinkerloop.cli \
   --user-id 5291202790 \
   --inner-provider bedrock \
   --inner-model us.amazon.nova-pro-v1:0
+```
+
+Rerun only previously failed scenarios:
+
+```bash
+python -m tinkerloop.cli \
+  --adapter examples.moppa.adapter:create_adapter \
+  --user-id 5291202790 \
+  --failed-from artifacts/reports
 ```
 
 ## Repo Layout
