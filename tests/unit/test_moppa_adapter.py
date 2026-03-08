@@ -15,6 +15,8 @@ def _make_repo(
 ) -> Path:
     repo_root = tmp_path / "moppa"
     (repo_root / "src/orchestrator/providers").mkdir(parents=True)
+    (repo_root / "scripts").mkdir(parents=True)
+    (repo_root / ".venv/bin").mkdir(parents=True)
     (repo_root / "src/orchestrator/loop.py").write_text(
         f'provider = os.environ.get("MOPPA_MODEL_PROVIDER", "{loop_default}")\n',
         encoding="utf-8",
@@ -27,60 +29,61 @@ def _make_repo(
         f'DEFAULT_MODEL = "{gemini_model}"\n',
         encoding="utf-8",
     )
+    (repo_root / "scripts/tinkerloop_turn.py").write_text("print('ok')\n", encoding="utf-8")
+    (repo_root / ".venv/bin/python").write_text("", encoding="utf-8")
     (repo_root / ".env").write_text("\n".join(env_lines or []), encoding="utf-8")
     return repo_root
 
 
-def test_moppa_adapter_preflight_blocks_when_user_missing(monkeypatch, tmp_path):
+def test_moppa_adapter_preflight_blocks_when_api_base_missing(tmp_path):
     adapter = MoppaAdapter(repo_root=_make_repo(tmp_path))
-    monkeypatch.setattr(adapter, "_prepare", lambda: None)
-    monkeypatch.setattr(adapter, "_load_moppa_user", lambda _user_id: None)
-    monkeypatch.delenv("DATABASE_URL", raising=False)
-    monkeypatch.setenv("DATABASE_URL", "postgresql://example/test")
 
     result = adapter.preflight(user_id="u1")
 
-    assert result.status == "blocked_runtime"
-    assert "was not found" in result.summary
+    assert result.status == "blocked_config"
+    assert "API_BASE_URL" in result.summary
 
 
 def test_moppa_adapter_preflight_blocks_when_gmail_missing(monkeypatch, tmp_path):
-    adapter = MoppaAdapter(repo_root=_make_repo(tmp_path))
-    monkeypatch.setattr(adapter, "_prepare", lambda: None)
+    adapter = MoppaAdapter(
+        repo_root=_make_repo(tmp_path, env_lines=["API_BASE_URL=https://example.com/dev"])
+    )
     monkeypatch.setattr(
         adapter,
-        "_load_moppa_user",
-        lambda _user_id: {"status": "new", "gmail_tokens": ""},
+        "_proxy_tool",
+        lambda tool_name, user_id, args: {
+            "status": "error",
+            "error": "No Gmail credentials for user u1",
+        },
     )
-    monkeypatch.setenv("DATABASE_URL", "postgresql://example/test")
 
     result = adapter.preflight(user_id="u1")
 
     assert result.status == "blocked_auth"
-    assert "not connected to Gmail" in result.summary
+    assert "MCP-connected user id" in result.summary
 
 
 def test_moppa_adapter_preflight_ready(monkeypatch, tmp_path):
-    adapter = MoppaAdapter(repo_root=_make_repo(tmp_path))
-    monkeypatch.setattr(adapter, "_prepare", lambda: None)
+    adapter = MoppaAdapter(
+        repo_root=_make_repo(tmp_path, env_lines=["API_BASE_URL=https://example.com/dev"])
+    )
     monkeypatch.setattr(
         adapter,
-        "_load_moppa_user",
-        lambda _user_id: {"status": "connected", "gmail_tokens": "{}", "email": "user@example.com"},
+        "_proxy_tool",
+        lambda tool_name, user_id, args: {"status": "ok", "data": {}},
     )
-    monkeypatch.setattr(adapter, "_load_moppa_gmail_credentials", lambda _user_id: object())
-    monkeypatch.setenv("DATABASE_URL", "postgresql://example/test")
 
     result = adapter.preflight(user_id="u1")
 
     assert result.status == "ready"
-    assert result.details["email"] == "user@example.com"
+    assert result.details["api_base_url"] == "https://example.com/dev"
 
 
 def test_moppa_adapter_runtime_spec_uses_explicit_env(monkeypatch, tmp_path):
     repo_root = _make_repo(
         tmp_path,
         env_lines=[
+            "API_BASE_URL=https://example.com/dev",
             "MOPPA_MODEL_PROVIDER=gemini",
             "MOPPA_CHAT_MODEL=gemini-3-flash-preview",
         ],
@@ -98,7 +101,9 @@ def test_moppa_adapter_runtime_spec_uses_explicit_env(monkeypatch, tmp_path):
 
 
 def test_moppa_adapter_runtime_spec_falls_back_to_repo_defaults(monkeypatch, tmp_path):
-    adapter = MoppaAdapter(repo_root=_make_repo(tmp_path))
+    adapter = MoppaAdapter(
+        repo_root=_make_repo(tmp_path, env_lines=["API_BASE_URL=https://example.com/dev"])
+    )
     monkeypatch.delenv("MOPPA_MODEL_PROVIDER", raising=False)
     monkeypatch.delenv("MOPPA_CHAT_MODEL", raising=False)
 
@@ -113,7 +118,10 @@ def test_moppa_adapter_runtime_spec_falls_back_to_repo_defaults(monkeypatch, tmp
 def test_moppa_adapter_runtime_candidates_include_repo_matches(monkeypatch, tmp_path):
     repo_root = _make_repo(
         tmp_path,
-        env_lines=["MOPPA_MODEL_PROVIDER=unknown-provider"],
+        env_lines=[
+            "API_BASE_URL=https://example.com/dev",
+            "MOPPA_MODEL_PROVIDER=unknown-provider",
+        ],
     )
     adapter = MoppaAdapter(repo_root=repo_root)
     monkeypatch.delenv("MOPPA_MODEL_PROVIDER", raising=False)
@@ -127,7 +135,9 @@ def test_moppa_adapter_runtime_candidates_include_repo_matches(monkeypatch, tmp_
 
 
 def test_moppa_adapter_select_runtime_sets_target_env(tmp_path, monkeypatch):
-    adapter = MoppaAdapter(repo_root=_make_repo(tmp_path))
+    adapter = MoppaAdapter(
+        repo_root=_make_repo(tmp_path, env_lines=["API_BASE_URL=https://example.com/dev"])
+    )
     runtime = adapter.runtime_spec(user_id="u1")
 
     assert runtime is not None

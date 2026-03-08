@@ -86,6 +86,31 @@ If a single model cannot be resolved confidently:
 - Tinkerloop presents those choices to the user
 - non-interactive runs should fail unless an explicit override is provided
 
+### 5. Future Secure Driver Contract
+
+The long-term target-side integration must not become a production backdoor.
+
+Future target-driver rules:
+- target repos should expose a tiny fixed Tinkerloop contract rather than arbitrary code execution
+- target-driver surfaces must be disabled in production
+- preferred transports are infrastructure-authenticated and private, such as IAM-authenticated Lambda invoke
+- no public anonymous test endpoints
+- no arbitrary function dispatch
+- no shell execution through the target app
+- all test sessions must be auditable and kill-switchable
+
+For AWS apps like Moppa, the preferred future shape is:
+- non-prod only `TinkerloopDriverFunction`
+- invoked through IAM, not public internet
+- fixed operations only:
+  - `preflight`
+  - `start_session`
+  - `send_turn`
+  - `poll_events`
+  - `get_trace`
+
+This is a future implementation phase, not the current stopgap.
+
 ## Current Status
 
 Implemented now:
@@ -93,6 +118,7 @@ Implemented now:
 - generic report writer
 - generic CLI runner
 - `PythonAppAdapter`
+- `CommandAppAdapter`
 - tool trace recording through configurable patch targets
 - Moppa example adapter
 - Moppa example scenario set
@@ -114,6 +140,28 @@ Not implemented yet:
 - outer developer loop with structured patch workflow
 - judge expansion beyond deterministic checks
 - target repo mutation workflow with explicit human gate
+- secure target-driver contract and target manifest
+
+## Current Moppa Stopgap
+
+For Moppa urgency, the current stopgap path is intentionally simpler than the future secure driver.
+
+Current stopgap:
+- Tinkerloop launches a target-owned Moppa script from the Moppa repo
+- Moppa's own orchestrator runs locally in Moppa's `.venv`
+- Moppa tool execution is proxied to deployed `/mcp/tool` via `API_BASE_URL`
+- local conversation/memory persistence is disabled in the runner to avoid DynamoDB/RDS coupling
+
+Why this exists:
+- it removes Telegram from the loop now
+- it exercises Moppa's own orchestrator instead of replacing it
+- it avoids waiting for the full secure target-driver implementation
+
+Current limitations:
+- it is for local/staging use only
+- it does not provide the final secure non-prod driver architecture
+- for Moppa today, the deployed `/mcp/tool` path may require a Moppa MCP-connected user id rather than a Telegram-only user id
+- local-only stopgap mode does not have full access to deployed conversation history or stored scan-summary state unless Moppa later adds a secure target driver
 
 ## Phased Plan
 
@@ -238,6 +286,42 @@ Required behavior:
 
 Acceptance:
 - user can select from a small candidate list when multiple inner models are plausible
+
+## Phase T7: Stopgap Conversation Bridge
+
+Goal:
+- support the simplest current reverse-Tinkerloop flow for target apps that already have a local orchestrator entrypoint
+
+Status:
+- implemented for Moppa as a stopgap
+
+Required behavior:
+- add a generic subprocess command adapter
+- allow target-owned runner scripts to emit trace files
+- keep target-specific logic in the target repo or example adapter
+
+Acceptance:
+- Tinkerloop can run a target-owned command per user turn
+- assistant reply is captured from stdout
+- tool traces are captured from a sidecar trace file when provided
+
+## Phase T8: Secure Target Driver Contract
+
+Goal:
+- replace stopgap repo-specific runners with a declared, secure target-driver contract
+
+Status:
+- not implemented
+
+Required behavior:
+- target repo declares a Tinkerloop contract explicitly
+- target repo owns deploy, preflight, session, and trace operations
+- target-driver surfaces are non-prod only and infrastructure-authenticated
+- no public backdoor endpoints
+
+Acceptance:
+- a target repo can integrate with Tinkerloop without Tinkerloop embedding repo-specific transport logic
+- driver contract is auditable and safe by default
 - CI/non-interactive usage fails closed without explicit selection
 
 ## Phase T7: Failure Artifact Model

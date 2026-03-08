@@ -25,6 +25,7 @@ Current MVP:
 - preflight the target app before scenario execution
 - resolve the target app's inner runtime from the target repo boundary
 - trace tool calls by patching configured execution points
+- trace tool calls from target-owned runner commands
 - evaluate deterministic checks
 - write JSON reports for failures and regressions
 - rerun only failed scenarios from a prior report
@@ -34,6 +35,7 @@ Not in scope yet:
 - automatic deploys
 - autonomous code changes without a human gate
 - benchmark claims beyond the configured scenario set
+- secure non-prod target-driver contracts
 
 ## Quick Start
 
@@ -96,3 +98,4 @@ Artifacts written on each run:
 - keep target-app integration behind adapters
 - no silent magic around tracing, patching, or scenario selection
 - no automatic production actions
+- future target-driver integrations must be non-prod only and secure by default

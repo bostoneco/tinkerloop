@@ -73,13 +73,24 @@ def run_scenario(scenario: Scenario, *, adapter: AppAdapter, user_id: str) -> Sc
     for index, turn in enumerate(scenario.turns, start=1):
         turn_started = time.time()
         correlation_id = f"eval-{scenario.scenario_id}-{index}-{uuid.uuid4().hex[:8]}"
-        with adapter.trace_recorder() as tracer:
-            assistant = adapter.send_user_turn(
-                user_id=user_id,
-                user_text=turn.user,
-                correlation_id=correlation_id,
-            )
-        checks = evaluate_checks(assistant=assistant, tool_traces=tracer.calls, checks=turn.checks)
+        tracer = adapter.trace_recorder()
+        try:
+            with tracer:
+                assistant = adapter.send_user_turn(
+                    user_id=user_id,
+                    user_text=turn.user,
+                    correlation_id=correlation_id,
+                )
+            checks = evaluate_checks(assistant=assistant, tool_traces=tracer.calls, checks=turn.checks)
+        except Exception as exc:
+            assistant = ""
+            checks = [
+                CheckResult(
+                    check_type="adapter_runtime",
+                    passed=False,
+                    detail=f"{type(exc).__name__}: {exc}",
+                )
+            ]
         passed = all(item.passed for item in checks)
         all_passed = all_passed and passed
         turns.append(
