@@ -1,0 +1,38 @@
+{
+  "scenario_id": "cleanup_preview_first_unit",
+  "description": "Previewing the first cleanup unit should run a real cleanup dry-run and mention exact current count plus undo.",
+  "destructive": false,
+  "tags": ["cleanup", "preview"],
+  "turns": [
+    {
+      "user": "Preview the first cleanup unit",
+      "checks": [
+        {
+          "type": "assistant_contains_all",
+          "values": [
+            "Preview for",
+            "Exact current match count:",
+            "Nothing has changed yet.",
+            "Undo will be available after execution."
+          ]
+        },
+        {
+          "type": "tool_used",
+          "values": ["cleanup"]
+        },
+        {
+          "type": "tool_call_matches",
+          "tool": "cleanup",
+          "arguments": {
+            "dry_run": true
+          }
+        },
+        {
+          "type": "tool_call_count_at_most",
+          "tool": "cleanup",
+          "max": 1
+        }
+      ]
+    }
+  ]
+}

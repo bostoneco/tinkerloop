@@ -1,0 +1,26 @@
+{
+  "scenario_id": "cleanup_first_unit",
+  "description": "Broad cleanup question should return one concrete cleanup unit instead of a hand-written sender strategy.",
+  "destructive": false,
+  "tags": ["cleanup", "planning"],
+  "turns": [
+    {
+      "user": "What should I clean first?",
+      "checks": [
+        {
+          "type": "assistant_contains_all",
+          "values": [
+            "Best first cleanup unit",
+            "Recommended action:",
+            "Nothing has changed yet.",
+            "Undo will be available after execution."
+          ]
+        },
+        {
+          "type": "tool_call_count_at_most",
+          "max": 0
+        }
+      ]
+    }
+  ]
+}
