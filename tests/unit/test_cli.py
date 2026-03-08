@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import io
+from pathlib import Path
 
 import pytest
 
 from tinkerloop.adapters.base import AppAdapter
-from tinkerloop.cli import resolve_runtime_selection
-from tinkerloop.models import RuntimeSpec
+from tinkerloop.cli import main, resolve_runtime_selection
+from tinkerloop.models import PreflightResult, RuntimeSpec
 
 
 class DummyAdapter(AppAdapter):
@@ -28,6 +29,9 @@ class DummyAdapter(AppAdapter):
 
     def select_runtime(self, runtime: RuntimeSpec) -> None:
         self.selected = runtime
+
+    def preflight(self, *, user_id: str) -> PreflightResult:
+        return PreflightResult(status="ready", summary="ready")
 
 
 def test_resolve_runtime_selection_uses_resolved_spec():
@@ -133,3 +137,57 @@ def test_resolve_runtime_selection_provider_override_uses_matching_candidate():
     assert selected.provider == "bedrock"
     assert selected.model == "us.amazon.nova-pro-v1:0"
     assert metadata["runtime_selection_mode"] == "override"
+
+
+def test_main_uses_failed_from_to_filter_scenarios(monkeypatch, tmp_path):
+    adapter = DummyAdapter(
+        resolved=RuntimeSpec(
+            provider="bedrock",
+            model="us.amazon.nova-pro-v1:0",
+            source="target_repo_defaults",
+            confidence="high",
+            reason="Resolved.",
+        )
+    )
+    captured = {}
+    monkeypatch.setattr(
+        "tinkerloop.cli.load_adapter",
+        lambda _factory_path: adapter,
+    )
+    monkeypatch.setattr(
+        "tinkerloop.cli.load_scenarios",
+        lambda _path: [],
+    )
+    monkeypatch.setattr(
+        "tinkerloop.cli.load_failed_scenario_ids",
+        lambda _path: ["cleanup_preview_first_unit"],
+    )
+    monkeypatch.setattr(
+        "tinkerloop.cli.run_scenarios",
+        lambda scenarios, *, adapter, user_id, allow_destructive, scenario_filter: (
+            captured.update({"scenario_filter": scenario_filter}) or []
+        ),
+    )
+    monkeypatch.setattr(
+        "tinkerloop.cli.write_report",
+        lambda results, *, output_dir, metadata=None: Path(output_dir) / "latest.json",
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "tinkerloop",
+            "--adapter",
+            "examples.moppa.adapter:create_adapter",
+            "--user-id",
+            "u1",
+            "--failed-from",
+            str(tmp_path),
+            "--report-dir",
+            str(tmp_path),
+        ],
+    )
+
+    exit_code = main()
+
+    assert exit_code == 0
+    assert captured["scenario_filter"] == {"cleanup_preview_first_unit"}

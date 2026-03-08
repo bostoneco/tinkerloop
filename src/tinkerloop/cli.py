@@ -7,7 +7,13 @@ from dataclasses import asdict
 from pathlib import Path
 
 from tinkerloop.adapters.base import AppAdapter
-from tinkerloop.engine import load_scenarios, run_scenarios, summarize_results, write_report
+from tinkerloop.engine import (
+    load_failed_scenario_ids,
+    load_scenarios,
+    run_scenarios,
+    summarize_results,
+    write_report,
+)
 from tinkerloop.models import RuntimeSpec
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -177,6 +183,11 @@ def main() -> int:
     parser.add_argument("--inner-provider", default="", help="Override inner provider")
     parser.add_argument("--inner-model", default="", help="Override inner model")
     parser.add_argument(
+        "--failed-from",
+        default="",
+        help="Rerun only failed scenarios from a prior report file or report directory",
+    )
+    parser.add_argument(
         "--scenarios",
         default="examples/moppa/scenarios",
         help="Scenario file or directory",
@@ -227,12 +238,18 @@ def main() -> int:
 
     metadata.update(runtime_metadata)
     scenarios = load_scenarios(args.scenarios)
+    scenario_filter = set(args.scenario) if args.scenario else set()
+    if args.failed_from:
+        failed_ids = load_failed_scenario_ids(args.failed_from)
+        scenario_filter.update(failed_ids)
+        metadata["rerun_failed_from"] = str(args.failed_from)
+        metadata["rerun_failed_scenario_ids"] = sorted(failed_ids)
     results = run_scenarios(
         scenarios,
         adapter=adapter,
         user_id=str(args.user_id),
         allow_destructive=bool(args.allow_destructive),
-        scenario_filter=set(args.scenario) if args.scenario else None,
+        scenario_filter=scenario_filter or None,
     )
     report_file = write_report(results, output_dir=args.report_dir, metadata=metadata)
     print(summarize_results(results))

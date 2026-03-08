@@ -211,13 +211,17 @@ def write_report(
     output_path.mkdir(parents=True, exist_ok=True)
     filename = f"tinkerloop-{int(time.time())}.json"
     report_file = output_path / filename
-    payload = {
-        "generated_at": int(time.time()),
-        "metadata": metadata or {},
-        "results": [asdict(result) for result in results],
-    }
+    payload = build_report_payload(results, metadata=metadata)
     with open(report_file, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2)
+    latest_file = output_path / "latest.json"
+    with open(latest_file, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
+
+    failure_payload = build_failure_artifact(results, metadata=metadata)
+    latest_failures_file = output_path / "latest-failures.json"
+    with open(latest_failures_file, "w", encoding="utf-8") as f:
+        json.dump(failure_payload, f, indent=2)
     return report_file
 
 
@@ -235,3 +239,100 @@ def summarize_results(results: list[ScenarioResult]) -> str:
             failing = [check.detail for check in turn.checks if not check.passed]
             lines.append(f"  turn {index}: {', '.join(failing)}")
     return "\n".join(lines)
+
+
+def build_report_payload(
+    results: list[ScenarioResult],
+    *,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    generated_at = int(time.time())
+    failed_scenario_ids = [result.scenario_id for result in results if not result.passed]
+    failed_turns = sum(1 for result in results for turn in result.turns if not turn.passed)
+    return {
+        "schema_version": "tinkerloop.report.v1",
+        "generated_at": generated_at,
+        "metadata": metadata or {},
+        "summary": {
+            "scenario_total": len(results),
+            "scenario_passed": sum(1 for result in results if result.passed),
+            "scenario_failed": sum(1 for result in results if not result.passed),
+            "failed_turn_total": failed_turns,
+            "failed_scenario_ids": failed_scenario_ids,
+        },
+        "failures": _collect_failures(results),
+        "results": [asdict(result) for result in results],
+    }
+
+
+def build_failure_artifact(
+    results: list[ScenarioResult],
+    *,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    failures = _collect_failures(results)
+    return {
+        "schema_version": "tinkerloop.failures.v1",
+        "generated_at": int(time.time()),
+        "metadata": metadata or {},
+        "summary": {
+            "failed_scenario_count": len(failures),
+            "failed_scenario_ids": [item["scenario_id"] for item in failures],
+        },
+        "failures": failures,
+    }
+
+
+def load_failed_scenario_ids(path: str | Path) -> list[str]:
+    target = Path(path)
+    if target.is_dir():
+        for candidate_name in ("latest-failures.json", "latest.json"):
+            candidate = target / candidate_name
+            if candidate.is_file():
+                return load_failed_scenario_ids(candidate)
+        reports = sorted(target.glob("tinkerloop-*.json"), reverse=True)
+        if reports:
+            return load_failed_scenario_ids(reports[0])
+        raise FileNotFoundError(f"No Tinkerloop report files found in {target}")
+
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    summary = payload.get("summary") or {}
+    failed_ids = summary.get("failed_scenario_ids") or []
+    if isinstance(failed_ids, list):
+        return [str(item) for item in failed_ids if str(item).strip()]
+
+    failures = payload.get("failures") or []
+    return [
+        str(item.get("scenario_id"))
+        for item in failures
+        if isinstance(item, dict) and str(item.get("scenario_id") or "").strip()
+    ]
+
+
+def _collect_failures(results: list[ScenarioResult]) -> list[dict[str, Any]]:
+    failures: list[dict[str, Any]] = []
+    for result in results:
+        if result.passed:
+            continue
+        turn_failures = []
+        for index, turn in enumerate(result.turns, start=1):
+            failing_checks = [asdict(check) for check in turn.checks if not check.passed]
+            if not failing_checks:
+                continue
+            turn_failures.append(
+                {
+                    "turn_index": index,
+                    "user": turn.user,
+                    "assistant": turn.assistant,
+                    "failing_checks": failing_checks,
+                    "tool_trace_count": len(turn.tool_traces),
+                }
+            )
+        failures.append(
+            {
+                "scenario_id": result.scenario_id,
+                "description": result.description,
+                "failed_turns": turn_failures,
+            }
+        )
+    return failures
