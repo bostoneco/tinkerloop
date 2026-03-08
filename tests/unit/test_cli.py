@@ -164,9 +164,10 @@ def test_main_uses_failed_from_to_filter_scenarios(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         "tinkerloop.cli.run_scenarios",
-        lambda scenarios, *, adapter, user_id, allow_destructive, scenario_filter: (
-            captured.update({"scenario_filter": scenario_filter}) or []
-        ),
+        lambda scenarios, *, adapter, user_id, allow_destructive, scenario_filter, tag_filter: captured.update(
+            {"scenario_filter": scenario_filter, "tag_filter": tag_filter}
+        )
+        or [],
     )
     monkeypatch.setattr(
         "tinkerloop.cli.write_report",
@@ -191,3 +192,50 @@ def test_main_uses_failed_from_to_filter_scenarios(monkeypatch, tmp_path):
 
     assert exit_code == 0
     assert captured["scenario_filter"] == {"cleanup_preview_first_unit"}
+    assert captured["tag_filter"] is None
+
+
+def test_main_passes_tag_filter(monkeypatch, tmp_path):
+    adapter = DummyAdapter(
+        resolved=RuntimeSpec(
+            provider="bedrock",
+            model="us.amazon.nova-pro-v1:0",
+            source="target_repo_defaults",
+            confidence="high",
+            reason="Resolved.",
+        )
+    )
+    captured = {}
+    monkeypatch.setattr("tinkerloop.cli.load_adapter", lambda _factory_path: adapter)
+    monkeypatch.setattr("tinkerloop.cli.load_scenarios", lambda _path: [])
+    monkeypatch.setattr(
+        "tinkerloop.cli.run_scenarios",
+        lambda scenarios, *, adapter, user_id, allow_destructive, scenario_filter, tag_filter: (
+            captured.update({"tag_filter": tag_filter}) or []
+        ),
+    )
+    monkeypatch.setattr(
+        "tinkerloop.cli.write_report",
+        lambda results, *, output_dir, metadata=None: Path(output_dir) / "latest.json",
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "tinkerloop",
+            "--adapter",
+            "examples.moppa.adapter:create_adapter",
+            "--user-id",
+            "u1",
+            "--tag",
+            "cleanup",
+            "--tag",
+            "preview",
+            "--report-dir",
+            str(tmp_path),
+        ],
+    )
+
+    exit_code = main()
+
+    assert exit_code == 0
+    assert captured["tag_filter"] == {"cleanup", "preview"}

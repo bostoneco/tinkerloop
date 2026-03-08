@@ -66,6 +66,22 @@ python -m tinkerloop.cli \
   --failed-from artifacts/reports
 ```
 
+Run only a tagged feature slice:
+
+```bash
+python -m tinkerloop.cli \
+  --adapter examples.moppa.adapter:create_adapter \
+  --user-id 5291202790 \
+  --tag cleanup \
+  --tag preview
+```
+
+Artifacts written on each run:
+- timestamped report: `tinkerloop-<timestamp>.json`
+- stable latest report: `latest.json`
+- stable failure summary: `latest-failures.json`
+- stable diagnosis payload: `latest-diagnosis.json`
+
 ## Repo Layout
 
 - `src/tinkerloop/`: reusable harness engine and adapter interfaces

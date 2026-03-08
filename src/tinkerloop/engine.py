@@ -51,10 +51,13 @@ def run_scenarios(
     user_id: str,
     allow_destructive: bool = False,
     scenario_filter: set[str] | None = None,
+    tag_filter: set[str] | None = None,
 ) -> list[ScenarioResult]:
     results: list[ScenarioResult] = []
     for scenario in scenarios:
         if scenario_filter and scenario.scenario_id not in scenario_filter:
+            continue
+        if tag_filter and not tag_filter.intersection(set(scenario.tags)):
             continue
         if scenario.destructive and not allow_destructive:
             continue
@@ -222,6 +225,11 @@ def write_report(
     latest_failures_file = output_path / "latest-failures.json"
     with open(latest_failures_file, "w", encoding="utf-8") as f:
         json.dump(failure_payload, f, indent=2)
+
+    diagnosis_payload = build_diagnosis_artifact(results, metadata=metadata)
+    latest_diagnosis_file = output_path / "latest-diagnosis.json"
+    with open(latest_diagnosis_file, "w", encoding="utf-8") as f:
+        json.dump(diagnosis_payload, f, indent=2)
     return report_file
 
 
@@ -309,6 +317,57 @@ def load_failed_scenario_ids(path: str | Path) -> list[str]:
     ]
 
 
+def build_diagnosis_artifact(
+    results: list[ScenarioResult],
+    *,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    failures = _collect_failures(results)
+    diagnosis_items = []
+    for failure in failures:
+        primary_symptoms: list[str] = []
+        turns = []
+        for turn in failure["failed_turns"]:
+            failing_checks = turn["failing_checks"]
+            for check in failing_checks:
+                detail = str(check.get("detail") or "")
+                if detail and detail not in primary_symptoms:
+                    primary_symptoms.append(detail)
+            turns.append(
+                {
+                    "turn_index": turn["turn_index"],
+                    "user": turn["user"],
+                    "assistant_excerpt": _excerpt(str(turn["assistant"])),
+                    "failing_checks": failing_checks,
+                    "tool_trace_count": turn["tool_trace_count"],
+                }
+            )
+        diagnosis_items.append(
+            {
+                "scenario_id": failure["scenario_id"],
+                "description": failure["description"],
+                "primary_symptoms": primary_symptoms[:5],
+                "turns": turns,
+            }
+        )
+
+    failed_ids = [item["scenario_id"] for item in diagnosis_items]
+    return {
+        "schema_version": "tinkerloop.diagnosis.v1",
+        "generated_at": int(time.time()),
+        "metadata": metadata or {},
+        "summary": {
+            "failed_scenario_count": len(diagnosis_items),
+            "failed_scenario_ids": failed_ids,
+        },
+        "diagnosis_items": diagnosis_items,
+        "rerun": {
+            "scenario_ids": failed_ids,
+            "hint": "--failed-from <report-dir-or-report-file>",
+        },
+    }
+
+
 def _collect_failures(results: list[ScenarioResult]) -> list[dict[str, Any]]:
     failures: list[dict[str, Any]] = []
     for result in results:
@@ -336,3 +395,10 @@ def _collect_failures(results: list[ScenarioResult]) -> list[dict[str, Any]]:
             }
         )
     return failures
+
+
+def _excerpt(text: str, *, limit: int = 240) -> str:
+    normalized = " ".join(text.split())
+    if len(normalized) <= limit:
+        return normalized
+    return normalized[: limit - 3] + "..."
