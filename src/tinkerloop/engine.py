@@ -1,0 +1,237 @@
+from __future__ import annotations
+
+import json
+import time
+import uuid
+from dataclasses import asdict
+from pathlib import Path
+from typing import Any
+
+from tinkerloop.adapters.base import AppAdapter
+from tinkerloop.models import (
+    CheckResult,
+    Scenario,
+    ScenarioCheck,
+    ScenarioResult,
+    ScenarioTurn,
+    TurnResult,
+)
+
+
+def load_scenarios(path: str | Path) -> list[Scenario]:
+    path = Path(path)
+    files = [path] if path.is_file() else sorted(path.glob("*.json"))
+    scenarios: list[Scenario] = []
+    for file_path in files:
+        with open(file_path, encoding="utf-8") as f:
+            payload = json.load(f)
+        turns = [
+            ScenarioTurn(
+                user=str(turn["user"]),
+                checks=[ScenarioCheck(**check) for check in turn.get("checks", [])],
+            )
+            for turn in payload.get("turns", [])
+        ]
+        scenarios.append(
+            Scenario(
+                scenario_id=str(payload["scenario_id"]),
+                description=str(payload.get("description") or payload["scenario_id"]),
+                turns=turns,
+                destructive=bool(payload.get("destructive", False)),
+                tags=list(payload.get("tags", [])),
+            )
+        )
+    return scenarios
+
+
+def run_scenarios(
+    scenarios: list[Scenario],
+    *,
+    adapter: AppAdapter,
+    user_id: str,
+    allow_destructive: bool = False,
+    scenario_filter: set[str] | None = None,
+) -> list[ScenarioResult]:
+    results: list[ScenarioResult] = []
+    for scenario in scenarios:
+        if scenario_filter and scenario.scenario_id not in scenario_filter:
+            continue
+        if scenario.destructive and not allow_destructive:
+            continue
+        results.append(run_scenario(scenario, adapter=adapter, user_id=user_id))
+    return results
+
+
+def run_scenario(scenario: Scenario, *, adapter: AppAdapter, user_id: str) -> ScenarioResult:
+    started = time.time()
+    turns: list[TurnResult] = []
+    all_passed = True
+
+    for index, turn in enumerate(scenario.turns, start=1):
+        turn_started = time.time()
+        correlation_id = f"eval-{scenario.scenario_id}-{index}-{uuid.uuid4().hex[:8]}"
+        with adapter.trace_recorder() as tracer:
+            assistant = adapter.send_user_turn(
+                user_id=user_id,
+                user_text=turn.user,
+                correlation_id=correlation_id,
+            )
+        checks = evaluate_checks(assistant=assistant, tool_traces=tracer.calls, checks=turn.checks)
+        passed = all(item.passed for item in checks)
+        all_passed = all_passed and passed
+        turns.append(
+            TurnResult(
+                user=turn.user,
+                assistant=assistant,
+                tool_traces=tracer.calls,
+                checks=checks,
+                passed=passed,
+                duration_ms=int((time.time() - turn_started) * 1000),
+            )
+        )
+
+    return ScenarioResult(
+        scenario_id=scenario.scenario_id,
+        description=scenario.description,
+        destructive=scenario.destructive,
+        user_id=user_id,
+        started_at=int(started),
+        duration_ms=int((time.time() - started) * 1000),
+        passed=all_passed,
+        turns=turns,
+    )
+
+
+def evaluate_checks(
+    *, assistant: str, tool_traces: list[Any], checks: list[ScenarioCheck]
+) -> list[CheckResult]:
+    results: list[CheckResult] = []
+    for check in checks:
+        if check.type == "assistant_contains_all":
+            missing = [item for item in check.values if item not in assistant]
+            results.append(
+                CheckResult(
+                    check_type=check.type,
+                    passed=not missing,
+                    detail="all substrings present"
+                    if not missing
+                    else f"missing substrings: {missing}",
+                )
+            )
+            continue
+        if check.type == "assistant_contains_any":
+            present = [item for item in check.values if item in assistant]
+            results.append(
+                CheckResult(
+                    check_type=check.type,
+                    passed=bool(present),
+                    detail=f"present: {present}" if present else f"none present: {check.values}",
+                )
+            )
+            continue
+        if check.type == "assistant_not_contains":
+            present = [item for item in check.values if item in assistant]
+            results.append(
+                CheckResult(
+                    check_type=check.type,
+                    passed=not present,
+                    detail="forbidden substrings absent"
+                    if not present
+                    else f"forbidden substrings present: {present}",
+                )
+            )
+            continue
+        if check.type == "tool_used":
+            used = {trace.tool_name for trace in tool_traces}
+            missing = [item for item in check.values if item not in used]
+            results.append(
+                CheckResult(
+                    check_type=check.type,
+                    passed=not missing,
+                    detail="required tools used" if not missing else f"missing tools: {missing}",
+                )
+            )
+            continue
+        if check.type == "tool_call_count_at_most":
+            if check.tool:
+                count = sum(1 for trace in tool_traces if trace.tool_name == check.tool)
+            else:
+                count = len(tool_traces)
+            max_allowed = int(check.max if check.max is not None else check.value or 0)
+            results.append(
+                CheckResult(
+                    check_type=check.type,
+                    passed=count <= max_allowed,
+                    detail=f"count={count}, max={max_allowed}",
+                )
+            )
+            continue
+        if check.type == "tool_call_matches":
+            match = any(
+                trace.tool_name == str(check.tool)
+                and dict_contains(trace.arguments, check.arguments)
+                for trace in tool_traces
+            )
+            results.append(
+                CheckResult(
+                    check_type=check.type,
+                    passed=match,
+                    detail=(
+                        f"matched tool={check.tool} args={check.arguments}"
+                        if match
+                        else f"no tool call matched tool={check.tool} args={check.arguments}"
+                    ),
+                )
+            )
+            continue
+        raise ValueError(f"Unsupported check type: {check.type}")
+    return results
+
+
+def dict_contains(haystack: dict[str, Any], needle: dict[str, Any]) -> bool:
+    for key, value in needle.items():
+        if key not in haystack:
+            return False
+        actual = haystack[key]
+        if isinstance(value, dict):
+            if not isinstance(actual, dict) or not dict_contains(actual, value):
+                return False
+        elif actual != value:
+            return False
+    return True
+
+
+def write_report(
+    results: list[ScenarioResult],
+    *,
+    output_dir: str | Path,
+    metadata: dict[str, Any] | None = None,
+) -> Path:
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    filename = f"tinkerloop-{int(time.time())}.json"
+    report_file = output_path / filename
+    payload = {
+        "generated_at": int(time.time()),
+        "metadata": metadata or {},
+        "results": [asdict(result) for result in results],
+    }
+    with open(report_file, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
+    return report_file
+
+
+def summarize_results(results: list[ScenarioResult]) -> str:
+    total = len(results)
+    passed = sum(1 for result in results if result.passed)
+    failed = total - passed
+    lines = [f"Scenarios: {total}, passed: {passed}, failed: {failed}"]
+    for result in results:
+        status = "PASS" if result.passed else "FAIL"
+        lines.append(f"- [{status}] {result.scenario_id}: {result.description}")
+        for index, turn in enumerate(result.turns, start=1):
+            if turn.passed:
+                continue
+            failing = [check.detail for check in turn.checks if not check.passed]
+            lines.append(f"  turn {index}: {', '.join(failing)}")
+    return "\n".join(lines)
