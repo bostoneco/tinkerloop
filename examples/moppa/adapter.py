@@ -36,6 +36,8 @@ class MoppaAdapter(CommandAppAdapter):
         )
 
     def preflight(self, *, user_id: str) -> PreflightResult:
+        for state_name in (".tinkerloop_cleanup_state.json", ".tinkerloop_conversations.json"):
+            (self.repo_root / state_name).unlink(missing_ok=True)
         api_base = self._api_base_url()
         if not api_base:
             return PreflightResult(
