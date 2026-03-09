@@ -36,8 +36,22 @@ class MoppaAdapter(CommandAppAdapter):
         )
 
     def preflight(self, *, user_id: str) -> PreflightResult:
-        for state_name in (".tinkerloop_cleanup_state.json", ".tinkerloop_conversations.json"):
+        state_files = [
+            ".tinkerloop_cleanup_state.json",
+            ".tinkerloop_compose_state.json",
+            ".tinkerloop_outbound_identity.json",
+            ".tinkerloop_conversations.json",
+        ]
+        if os.environ.get("TINKERLOOP_KEEP_OUTBOUND_IDENTITY") == "1":
+            state_files = [name for name in state_files if name != ".tinkerloop_outbound_identity.json"]
+        for state_name in state_files:
             (self.repo_root / state_name).unlink(missing_ok=True)
+        if os.environ.get("TINKERLOOP_FAKE_GMAIL_SEND") == "1":
+            return PreflightResult(
+                status="ready",
+                summary="Moppa fake Gmail send mode is enabled for Tinkerloop.",
+                details={"user_id": user_id, "mode": "fake_gmail_send"},
+            )
         api_base = self._api_base_url()
         if not api_base:
             return PreflightResult(
@@ -104,7 +118,9 @@ class MoppaAdapter(CommandAppAdapter):
         inferred_provider = self._infer_provider_from_model(model_value)
 
         if provider_value and model_value:
-            if not provider_known or (inferred_provider and inferred_provider != normalized_provider):
+            if not provider_known or (
+                inferred_provider and inferred_provider != normalized_provider
+            ):
                 return None
             return RuntimeSpec(
                 provider=normalized_provider,
@@ -241,7 +257,9 @@ class MoppaAdapter(CommandAppAdapter):
             }
         return metadata
 
-    def _proxy_tool(self, tool_name: str, user_id: str, args: dict[str, object]) -> dict[str, object]:
+    def _proxy_tool(
+        self, tool_name: str, user_id: str, args: dict[str, object]
+    ) -> dict[str, object]:
         body = json.dumps({"tool_name": tool_name, "user_id": user_id, "args": args}).encode()
         req = urllib.request.Request(
             f"{self._api_base_url().rstrip('/')}/mcp/tool",
@@ -256,9 +274,15 @@ class MoppaAdapter(CommandAppAdapter):
             payload = exc.read().decode()
         try:
             data = json.loads(payload)
-            return data if isinstance(data, dict) else {"status": "error", "error": "invalid_payload"}
+            return (
+                data if isinstance(data, dict) else {"status": "error", "error": "invalid_payload"}
+            )
         except json.JSONDecodeError:
-            return {"status": "error", "error": "invalid_payload", "user_safe_summary": payload[:300]}
+            return {
+                "status": "error",
+                "error": "invalid_payload",
+                "user_safe_summary": payload[:300],
+            }
 
     def _api_base_url(self) -> str:
         return (
