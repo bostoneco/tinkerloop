@@ -38,6 +38,7 @@ class MoppaAdapter(CommandAppAdapter):
     def preflight(self, *, user_id: str) -> PreflightResult:
         state_files = [
             ".tinkerloop_cleanup_state.json",
+            ".tinkerloop_routing_state.json",
             ".tinkerloop_compose_state.json",
             ".tinkerloop_outbound_identity.json",
             ".tinkerloop_conversations.json",
