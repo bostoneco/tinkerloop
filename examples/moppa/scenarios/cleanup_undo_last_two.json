@@ -1,0 +1,25 @@
+{
+  "scenario_id": "cleanup_undo_last_two",
+  "description": "Undo the two most recent cleanup batches after seeding two reversible batches.",
+  "destructive": true,
+  "tags": ["cleanup", "undo", "destructive", "seeded"],
+  "turns": [
+    {
+      "user": "undo last 2 actions",
+      "checks": [
+        {
+          "type": "assistant_contains_all",
+          "values": [
+            "Undid **2 cleanup batches**.",
+            "Restored **",
+            "batch_"
+          ]
+        },
+        {
+          "type": "tool_used",
+          "values": ["undo_batch"]
+        }
+      ]
+    }
+  ]
+}
