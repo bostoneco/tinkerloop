@@ -1,0 +1,101 @@
+{
+  "scenario_id": "cleanup_novice_delegate_and_undo",
+  "description": "A novice user asks Moppa to take over cleanup, then confirms the first cleanup unit and undoes it.",
+  "destructive": true,
+  "tags": ["cleanup", "destructive", "novice", "undo"],
+  "turns": [
+    {
+      "user": "How can you help me with Gmail? I only use it occasionally and I don't really know where to start."
+    },
+    {
+      "user": "Just go ahead and clean up everything the way you see fit.",
+      "checks": [
+        {
+          "type": "assistant_contains_all",
+          "values": [
+            "Preview for",
+            "Exact current match count:",
+            "Undo will be available after execution.",
+            "Nothing has changed yet."
+          ]
+        },
+        {
+          "type": "assistant_not_contains",
+          "values": [
+            "analysis for the last 90 days has started",
+            "mail review is already running",
+            "Would you like me to proceed with any of these actions while we wait for the analysis to complete?"
+          ]
+        },
+        {
+          "type": "tool_used",
+          "values": ["cleanup"]
+        },
+        {
+          "type": "tool_call_matches",
+          "tool": "cleanup",
+          "arguments": {
+            "dry_run": true
+          }
+        }
+      ]
+    },
+    {
+      "user": "Yes, do it.",
+      "checks": [
+        {
+          "type": "assistant_contains_all",
+          "values": [
+            "Ready to apply",
+            "Reply `confirm` to proceed.",
+            "Undo will be available after execution."
+          ]
+        },
+        {
+          "type": "tool_used",
+          "values": ["cleanup"]
+        }
+      ]
+    },
+    {
+      "user": "confirm",
+      "checks": [
+        {
+          "type": "assistant_contains_all",
+          "values": [
+            "ran successfully",
+            "Undo is available for batch",
+            "Say `undo that`"
+          ]
+        },
+        {
+          "type": "tool_used",
+          "values": ["cleanup"]
+        },
+        {
+          "type": "tool_call_matches",
+          "tool": "cleanup",
+          "arguments": {
+            "confirmed": true
+          }
+        }
+      ]
+    },
+    {
+      "user": "undo that",
+      "checks": [
+        {
+          "type": "assistant_contains_all",
+          "values": [
+            "Undid the latest cleanup batch",
+            "Restored **"
+          ]
+        },
+        {
+          "type": "tool_used",
+          "values": ["undo_batch"]
+        }
+      ]
+    }
+  ]
+}
