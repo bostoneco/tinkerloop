@@ -68,8 +68,6 @@ It supports target-owned runner commands that:
 - write the assistant reply to stdout
 - optionally write tool traces to a file declared by `TINKERLOOP_TRACE_FILE`
 
-This is the current Moppa stopgap path.
-
 ## Why This Shape
 
 This keeps Tinkerloop:
