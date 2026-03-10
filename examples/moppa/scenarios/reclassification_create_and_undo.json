@@ -1,0 +1,92 @@
+{
+  "scenario_id": "reclassification_create_and_undo",
+  "description": "Preview, confirm, apply, and undo a historical Gmail category reclassification unit before cleanup.",
+  "destructive": true,
+  "tags": ["reclassification", "organize", "undo", "destructive"],
+  "turns": [
+    {
+      "user": "Fix category placement before cleanup.",
+      "checks": [
+        {
+          "type": "assistant_contains_all",
+          "values": [
+            "Preview for",
+            "Target Gmail category:",
+            "Exact current match count:",
+            "Nothing has changed yet."
+          ]
+        },
+        {
+          "type": "tool_used",
+          "values": ["organize"]
+        },
+        {
+          "type": "tool_call_matches",
+          "tool": "organize",
+          "arguments": {
+            "action": "reclassify",
+            "dry_run": true
+          }
+        }
+      ]
+    },
+    {
+      "user": "do it",
+      "checks": [
+        {
+          "type": "assistant_contains_all",
+          "values": [
+            "Ready to apply",
+            "Undo will be available after execution.",
+            "Reply `confirm` to proceed."
+          ]
+        },
+        {
+          "type": "tool_used",
+          "values": ["organize"]
+        }
+      ]
+    },
+    {
+      "user": "confirm",
+      "checks": [
+        {
+          "type": "assistant_contains_all",
+          "values": [
+            "ran successfully",
+            "Undo is available for batch",
+            "Say `undo that`"
+          ]
+        },
+        {
+          "type": "tool_used",
+          "values": ["organize"]
+        },
+        {
+          "type": "tool_call_matches",
+          "tool": "organize",
+          "arguments": {
+            "action": "reclassify",
+            "confirmed": true
+          }
+        }
+      ]
+    },
+    {
+      "user": "undo that",
+      "checks": [
+        {
+          "type": "assistant_contains_all",
+          "values": [
+            "Undid the latest cleanup batch",
+            "Restored **"
+          ]
+        },
+        {
+          "type": "tool_used",
+          "values": ["undo_batch"]
+        }
+      ]
+    }
+  ]
+}
