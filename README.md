@@ -39,41 +39,44 @@ Not in scope yet:
 
 ## Quick Start
 
-Install dev tooling and run the Moppa example:
+Install dev tooling and run Tinkerloop against a target-owned adapter and scenario set:
 
 ```bash
-python -m pytest -q
-python -m tinkerloop.cli \
-  --adapter examples.moppa.adapter:create_adapter \
-  --user-id 5291202790 \
-  --scenarios examples/moppa/scenarios
+PYTHONPATH=src python -m pytest -q
+PYTHONPATH=src python -m tinkerloop.cli \
+  --adapter your_project.tinkerloop_adapter:create_adapter \
+  --user-id <target-user-id> \
+  --scenarios path/to/tinkerloop/scenarios
 ```
 
 If the adapter cannot resolve one inner model confidently, Tinkerloop will prompt for a repo-derived candidate in interactive mode. In non-interactive mode, pass explicit overrides:
 
 ```bash
-python -m tinkerloop.cli \
-  --adapter examples.moppa.adapter:create_adapter \
-  --user-id 5291202790 \
-  --inner-provider bedrock \
-  --inner-model us.amazon.nova-pro-v1:0
+PYTHONPATH=src python -m tinkerloop.cli \
+  --adapter your_project.tinkerloop_adapter:create_adapter \
+  --user-id <target-user-id> \
+  --scenarios path/to/tinkerloop/scenarios \
+  --inner-provider <provider> \
+  --inner-model <model>
 ```
 
 Rerun only previously failed scenarios:
 
 ```bash
-python -m tinkerloop.cli \
-  --adapter examples.moppa.adapter:create_adapter \
-  --user-id 5291202790 \
+PYTHONPATH=src python -m tinkerloop.cli \
+  --adapter your_project.tinkerloop_adapter:create_adapter \
+  --user-id <target-user-id> \
+  --scenarios path/to/tinkerloop/scenarios \
   --failed-from artifacts/reports
 ```
 
 Run only a tagged feature slice:
 
 ```bash
-python -m tinkerloop.cli \
-  --adapter examples.moppa.adapter:create_adapter \
-  --user-id 5291202790 \
+PYTHONPATH=src python -m tinkerloop.cli \
+  --adapter your_project.tinkerloop_adapter:create_adapter \
+  --user-id <target-user-id> \
+  --scenarios path/to/tinkerloop/scenarios \
   --tag cleanup \
   --tag preview
 ```
@@ -85,12 +88,13 @@ Artifacts written on each run:
 - stable diagnosis payload: `latest-diagnosis.json`
 
 Day-to-day usage conventions live in `docs/WORKING_AGREEMENT.md`.
+The public integration boundary is documented in `docs/TARGET_CONTRACT.md`.
 
 ## Repo Layout
 
 - `src/tinkerloop/`: reusable harness engine and adapter interfaces
-- `examples/moppa/`: example adapter and example scenarios for Moppa
-- `docs/`: charter, architecture, MVP plan, implementation handoff, and working agreement
+- `examples/`: optional example and transition fixtures
+- `docs/`: charter, architecture, target contract, MVP plan, implementation handoff, and working agreement
 - `tests/`: Tinkerloop unit tests
 
 ## Design Rules

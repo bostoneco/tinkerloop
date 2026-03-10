@@ -110,7 +110,7 @@ Avoid these:
 Narrow first:
 
 ```bash
-python -m tinkerloop.cli \
+PYTHONPATH=src python -m tinkerloop.cli \
   --adapter <adapter-factory> \
   --user-id <user-id> \
   --scenarios <scenario-dir> \
@@ -120,9 +120,10 @@ python -m tinkerloop.cli \
 Rerun prior failures:
 
 ```bash
-python -m tinkerloop.cli \
+PYTHONPATH=src python -m tinkerloop.cli \
   --adapter <adapter-factory> \
   --user-id <user-id> \
+  --scenarios <scenario-dir> \
   --failed-from artifacts/reports
 ```
 

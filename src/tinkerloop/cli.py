@@ -189,7 +189,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--scenarios",
-        default="examples/moppa/scenarios",
+        required=True,
         help="Scenario file or directory",
     )
     parser.add_argument(
