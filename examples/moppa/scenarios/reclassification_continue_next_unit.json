@@ -1,0 +1,96 @@
+{
+  "scenario_id": "reclassification_continue_next_unit",
+  "description": "After the first historical reclassification step completes, 'go for it' should continue into the next previewed reclassification unit without restating the broad request.",
+  "destructive": true,
+  "tags": ["reclassification", "organize", "undo", "destructive"],
+  "turns": [
+    {
+      "user": "Fix category placement before cleanup.",
+      "checks": [
+        {
+          "type": "assistant_contains_all",
+          "values": [
+            "Preview for",
+            "Target Gmail category:",
+            "Nothing has changed yet."
+          ]
+        }
+      ]
+    },
+    {
+      "user": "do it",
+      "checks": [
+        {
+          "type": "assistant_contains_all",
+          "values": [
+            "Ready to apply",
+            "Reply `confirm` to proceed."
+          ]
+        }
+      ]
+    },
+    {
+      "user": "confirm",
+      "checks": [
+        {
+          "type": "assistant_contains_all",
+          "values": [
+            "ran successfully",
+            "The next category-repair unit is",
+            "Say `go for it`"
+          ]
+        }
+      ]
+    },
+    {
+      "user": "go for it",
+      "checks": [
+        {
+          "type": "assistant_contains_all",
+          "values": [
+            "Ready to apply",
+            "Undo will be available after execution.",
+            "Reply `confirm` to proceed."
+          ]
+        },
+        {
+          "type": "tool_used",
+          "values": ["organize"]
+        }
+      ]
+    },
+    {
+      "user": "confirm",
+      "checks": [
+        {
+          "type": "assistant_contains_all",
+          "values": [
+            "ran successfully",
+            "Moved **",
+            "Undo is available for batch"
+          ]
+        },
+        {
+          "type": "tool_used",
+          "values": ["organize"]
+        }
+      ]
+    },
+    {
+      "user": "undo last 2 actions",
+      "checks": [
+        {
+          "type": "assistant_contains_all",
+          "values": [
+            "Undid **2 cleanup batches**.",
+            "Restored **"
+          ]
+        },
+        {
+          "type": "tool_used",
+          "values": ["undo_batch"]
+        }
+      ]
+    }
+  ]
+}
