@@ -1,0 +1,14 @@
+{
+  "scenario_id": "cleanup_preview_first_unit",
+  "description": "Preview one cleanup unit before execution.",
+  "tags": ["cleanup", "preview"],
+  "turns": [
+    {
+      "user": "Preview the first cleanup unit",
+      "checks": [
+        {"type": "assistant_contains_all", "values": ["Preview", "Undo"]},
+        {"type": "tool_call_matches", "tool": "cleanup", "arguments": {"dry_run": true, "scope": "first_unit"}}
+      ]
+    }
+  ]
+}

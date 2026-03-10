@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from tinkerloop.adapters.base import AppAdapter
-from tinkerloop.cli import main, resolve_runtime_selection
+from tinkerloop.cli import load_adapter, main, resolve_runtime_selection
 from tinkerloop.models import PreflightResult, RuntimeSpec
 
 
@@ -137,6 +137,33 @@ def test_resolve_runtime_selection_provider_override_uses_matching_candidate():
     assert selected.provider == "bedrock"
     assert selected.model == "us.amazon.nova-pro-v1:0"
     assert metadata["runtime_selection_mode"] == "override"
+
+
+def test_load_adapter_supports_file_path(tmp_path):
+    adapter_file = tmp_path / "target_adapter.py"
+    adapter_file.write_text(
+        """
+from tinkerloop.adapters.base import AppAdapter
+from tinkerloop.models import PreflightResult
+
+
+class FileAdapter(AppAdapter):
+    def send_user_turn(self, *, user_id: str, user_text: str, correlation_id: str) -> str:
+        return "ok"
+
+    def preflight(self, *, user_id: str) -> PreflightResult:
+        return PreflightResult(status="ready", summary="ready")
+
+
+def create_adapter():
+    return FileAdapter()
+""".strip(),
+        encoding="utf-8",
+    )
+
+    adapter = load_adapter(f"{adapter_file}:create_adapter")
+
+    assert type(adapter).__name__ == "FileAdapter"
 
 
 def test_main_uses_failed_from_to_filter_scenarios(monkeypatch, tmp_path):

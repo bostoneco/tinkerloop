@@ -39,23 +39,26 @@ Not in scope yet:
 
 ## Quick Start
 
-Install dev tooling and run Tinkerloop against a target-owned adapter and scenario set:
+Install dev tooling and run the generic demo target:
 
 ```bash
 PYTHONPATH=src python -m pytest -q
 PYTHONPATH=src python -m tinkerloop.cli \
-  --adapter your_project.tinkerloop_adapter:create_adapter \
-  --user-id <target-user-id> \
-  --scenarios path/to/tinkerloop/scenarios
+  --adapter examples.demo_app.adapter:create_adapter \
+  --user-id demo-user \
+  --scenarios examples/demo_app/scenarios
 ```
+
+For real projects, the target repo should own its adapter and scenarios.
+`--adapter` accepts either an import path such as `your_project.tinkerloop_adapter:create_adapter` or a file path such as `/path/to/target_adapter.py:create_adapter`.
 
 If the adapter cannot resolve one inner model confidently, Tinkerloop will prompt for a repo-derived candidate in interactive mode. In non-interactive mode, pass explicit overrides:
 
 ```bash
 PYTHONPATH=src python -m tinkerloop.cli \
-  --adapter your_project.tinkerloop_adapter:create_adapter \
-  --user-id <target-user-id> \
-  --scenarios path/to/tinkerloop/scenarios \
+  --adapter examples.demo_app.adapter:create_adapter \
+  --user-id demo-user \
+  --scenarios examples/demo_app/scenarios \
   --inner-provider <provider> \
   --inner-model <model>
 ```
@@ -64,9 +67,9 @@ Rerun only previously failed scenarios:
 
 ```bash
 PYTHONPATH=src python -m tinkerloop.cli \
-  --adapter your_project.tinkerloop_adapter:create_adapter \
-  --user-id <target-user-id> \
-  --scenarios path/to/tinkerloop/scenarios \
+  --adapter examples.demo_app.adapter:create_adapter \
+  --user-id demo-user \
+  --scenarios examples/demo_app/scenarios \
   --failed-from artifacts/reports
 ```
 
@@ -74,9 +77,9 @@ Run only a tagged feature slice:
 
 ```bash
 PYTHONPATH=src python -m tinkerloop.cli \
-  --adapter your_project.tinkerloop_adapter:create_adapter \
-  --user-id <target-user-id> \
-  --scenarios path/to/tinkerloop/scenarios \
+  --adapter examples.demo_app.adapter:create_adapter \
+  --user-id demo-user \
+  --scenarios examples/demo_app/scenarios \
   --tag cleanup \
   --tag preview
 ```

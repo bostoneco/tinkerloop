@@ -29,7 +29,7 @@ Required:
 - documented quickstart
 
 Status:
-- implemented for Moppa example
+- implemented for the generic demo example
 
 ## Phase T4: Developer Loop
 
