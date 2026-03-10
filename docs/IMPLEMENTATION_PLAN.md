@@ -380,6 +380,13 @@ Still missing:
 - explicit human approval flow for mutations
 - regression sequencing beyond manual reruns
 
+Deferred follow-on ideas inspired by `karpathy/autoresearch`:
+- add a target-local operator policy file such as `program.md` so the outer loop can follow app-specific diagnosis and improvement rules without hardcoding them into Tinkerloop core
+- add a cross-run experiment ledger that records baseline, candidate, pass-rate delta, tool-usage delta, and keep/discard outcome for each attempted improvement
+- add fixed-budget candidate evaluation so prompt, routing, config, or future patch experiments are compared on the same scoped scenario slice instead of open-ended retries
+- upgrade diagnosis artifacts from symptom-only summaries to hypothesis-oriented handoff items with likely cause, suggested next experiment, and confidence
+- if target-repo mutation is added later, keep the writable surface explicit and bounded through an allowed-files manifest rather than free-form autonomous edits
+
 Important constraint:
 - this phase mutates the target repo, not the Tinkerloop repo
 - mutation must be explicit, auditable, and bounded to the target repo under test
