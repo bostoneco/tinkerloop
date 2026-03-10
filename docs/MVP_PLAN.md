@@ -58,6 +58,9 @@ Required:
 - structured handoff for outer developer agent
 - optional judge extensions
 - scenario tagging and scoped reruns
+- target-local improvement policy
+- fixed-budget candidate comparisons
+- cross-run keep/discard experiment tracking
 
 Status:
 - not implemented

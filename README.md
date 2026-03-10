@@ -84,11 +84,13 @@ Artifacts written on each run:
 - stable failure summary: `latest-failures.json`
 - stable diagnosis payload: `latest-diagnosis.json`
 
+Day-to-day usage conventions live in `docs/WORKING_AGREEMENT.md`.
+
 ## Repo Layout
 
 - `src/tinkerloop/`: reusable harness engine and adapter interfaces
 - `examples/moppa/`: example adapter and example scenarios for Moppa
-- `docs/`: charter, architecture, MVP plan, and implementation handoff
+- `docs/`: charter, architecture, MVP plan, implementation handoff, and working agreement
 - `tests/`: Tinkerloop unit tests
 
 ## Design Rules
