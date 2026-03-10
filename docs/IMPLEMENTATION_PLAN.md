@@ -60,10 +60,10 @@ Disallowed:
 
 ### 3. Auth and External Setup Stay in the Target App
 
-Example: Moppa requires Gmail connection.
+Example: a target app may require external auth such as Gmail.
 
-Tinkerloop core must not know anything about Gmail auth.
-That belongs in the Moppa adapter.
+Tinkerloop core must not know anything about target-specific auth.
+That belongs in the target-owned integration.
 
 Correct behavior:
 - adapter runs a preflight check
@@ -99,7 +99,7 @@ Future target-driver rules:
 - no shell execution through the target app
 - all test sessions must be auditable and kill-switchable
 
-For AWS apps like Moppa, the preferred future shape is:
+For AWS-hosted target apps, the preferred future shape is:
 - non-prod only `TinkerloopDriverFunction`
 - invoked through IAM, not public internet
 - fixed operations only:
@@ -120,19 +120,20 @@ Implemented now:
 - `PythonAppAdapter`
 - `CommandAppAdapter`
 - tool trace recording through configurable patch targets
-- Moppa example adapter
-- Moppa example scenario set
-- feedback-loop logic removed from Moppa and moved here
+- generic demo example adapter
+- generic demo scenario set
+- public target contract documentation
 
 Current docs:
 - `docs/PROJECT_CHARTER.md`
 - `docs/ARCHITECTURE.md`
+- `docs/TARGET_CONTRACT.md`
 - `docs/MVP_PLAN.md`
 - `docs/IMPLEMENTATION_PLAN.md`
 
 Current example integration:
-- `examples/moppa/adapter.py`
-- `examples/moppa/scenarios/*.json`
+- `examples/demo_app/adapter.py`
+- `examples/demo_app/scenarios/*.json`
 
 ## Current Gaps
 
@@ -142,26 +143,25 @@ Not implemented yet:
 - target repo mutation workflow with explicit human gate
 - secure target-driver contract and target manifest
 
-## Current Moppa Stopgap
+## Current Private-Target Stopgap
 
-For Moppa urgency, the current stopgap path is intentionally simpler than the future secure driver.
+One private target currently uses a target-owned local runner as a stopgap integration.
 
 Current stopgap:
-- Tinkerloop launches a target-owned Moppa script from the Moppa repo
-- Moppa's own orchestrator runs locally in Moppa's `.venv`
-- Moppa tool execution is proxied to deployed `/mcp/tool` via `API_BASE_URL`
-- local conversation/memory persistence is disabled in the runner to avoid DynamoDB/RDS coupling
+- Tinkerloop launches a target-owned runner script from the target repo
+- the target orchestrator runs locally in its own environment
+- tool execution may be proxied to a deployed tool surface if the target repo chooses that boundary
+- local-only persistence shims may be used to avoid coupling the harness to production stores
 
 Why this exists:
-- it removes Telegram from the loop now
-- it exercises Moppa's own orchestrator instead of replacing it
+- it removes external chat surfaces from the loop during development
+- it exercises the target app's own orchestrator instead of replacing it
 - it avoids waiting for the full secure target-driver implementation
 
 Current limitations:
 - it is for local/staging use only
 - it does not provide the final secure non-prod driver architecture
-- for Moppa today, the deployed `/mcp/tool` path may require a Moppa MCP-connected user id rather than a Telegram-only user id
-- local-only stopgap mode does not have full access to deployed conversation history or stored scan-summary state unless Moppa later adds a secure target driver
+- private target details belong in the target repo, not in Tinkerloop
 
 ## Phased Plan
 
@@ -207,16 +207,16 @@ Goal:
 - move reusable harness logic out of target apps and keep only app logic inside target repos
 
 Status:
-- implemented for Moppa
+- implemented for the generic demo example and for private target-owned integrations
 
 Required behavior:
 - Tinkerloop owns the harness
-- Moppa owns only Moppa logic
-- example adapter and scenarios live in Tinkerloop, not Moppa
+- target repos own target-specific logic
+- public examples in Tinkerloop remain generic
 
 Acceptance:
-- Moppa has no feedback-loop engine/docs/scripts left
-- Moppa still passes tests after extraction
+- target-owned integrations do not require Tinkerloop to embed private app logic
+- a generic example remains available in the Tinkerloop repo
 
 ## Phase T4: Adapter Preflight Contract
 
@@ -224,7 +224,7 @@ Goal:
 - make target readiness explicit before a run starts
 
 Status:
-- implemented for the current adapter contract and Moppa example
+- implemented for the current adapter contract
 
 Required behavior:
 - add a generic adapter `preflight()` contract
@@ -235,13 +235,8 @@ Required behavior:
   - `blocked_runtime`
 - surface a clear message and stop early when blocked
 
-Moppa-specific implementation:
-- verify target user exists in Moppa
-- verify Gmail auth state from Moppa-owned logic/config
-- do not teach Tinkerloop core about Gmail
-
 Acceptance:
-- running the Moppa example against an unconnected user fails cleanly before scenario execution
+- running a target integration against an unready target fails cleanly before scenario execution
 - report includes preflight result
 
 ## Phase T5: Runtime Model Resolution Contract
@@ -250,7 +245,7 @@ Goal:
 - make the inner orchestrator model explicit and repo-bounded
 
 Status:
-- implemented for the current adapter contract and Moppa example
+- implemented for the current adapter contract
 
 Required behavior:
 - add generic adapter methods such as:
@@ -258,11 +253,6 @@ Required behavior:
   - `runtime_candidates()` when resolution is missing or ambiguous
 - runtime resolution may inspect only the target repo boundary
 - record provider/model/source/confidence in the run report
-
-Moppa-specific implementation:
-- resolve from Moppa repo env/config/defaults first
-- optionally inspect Moppa deployed runtime only if defined as part of the Moppa adapter boundary
-- never scan unrelated repos
 
 Acceptance:
 - report includes resolved inner model metadata when available
@@ -293,7 +283,7 @@ Goal:
 - support the simplest current reverse-Tinkerloop flow for target apps that already have a local orchestrator entrypoint
 
 Status:
-- implemented for Moppa as a stopgap
+- implemented as a generic stopgap for target-owned runner scripts
 
 Required behavior:
 - add a generic subprocess command adapter
@@ -324,7 +314,7 @@ Acceptance:
 - driver contract is auditable and safe by default
 - CI/non-interactive usage fails closed without explicit selection
 
-## Phase T7: Failure Artifact Model
+## Phase T9: Failure Artifact Model
 
 Goal:
 - make failures easy for a developer or outer model to act on
@@ -355,7 +345,7 @@ Still missing:
 Acceptance:
 - a failing run produces stable artifacts with enough structure for reruns and automation
 
-## Phase T8: Outer Developer Loop
+## Phase T10: Outer Developer Loop
 
 Goal:
 - support the developer side of `test -> diagnose -> patch -> rerun`
@@ -394,7 +384,7 @@ Important constraint:
 Acceptance:
 - a developer can run a scoped improvement loop against one failing scenario family
 
-## Phase T9: Judge Expansion
+## Phase T11: Judge Expansion
 
 Goal:
 - allow richer evaluations without making the core opaque
@@ -412,10 +402,10 @@ Acceptance:
 - deterministic-only runs remain supported
 - LLM-judge runs clearly show what was model-judged vs deterministic
 
-## Phase T10: Additional Adapters
+## Phase T12: Additional Adapters
 
 Goal:
-- prove Tinkerloop is reusable beyond Moppa
+- prove Tinkerloop is reusable across multiple target apps
 
 Status:
 - not implemented
@@ -442,22 +432,21 @@ This order matters because:
 - artifact quality is needed before patch automation
 - outer-loop mutation should not be built on top of weak run metadata
 
-## Moppa-Specific Notes
+## Target-Specific Notes
 
-Moppa remains the first example integration, but Moppa-specific logic must stay in the Moppa adapter.
+Target-specific logic must stay in target-owned integrations.
 
 That includes:
-- Gmail auth readiness
+- auth readiness
 - target user connection requirements
-- inner model resolution from Moppa config
-- Moppa-specific trace patch targets
-- Moppa-specific scenario library
+- inner model resolution from target config
+- target-specific trace patch targets
+- target-specific scenario libraries
 
 Tinkerloop core must not contain:
-- Gmail logic
-- Telegram logic
-- Moppa business rules
-- hardcoded Moppa config names outside the Moppa example adapter
+- target business rules
+- target product naming
+- hardcoded target config names outside generic adapters and contracts
 
 ## Acceptance Standard For Any Future Change
 

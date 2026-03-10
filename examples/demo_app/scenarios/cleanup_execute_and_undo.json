@@ -1,0 +1,21 @@
+{
+  "scenario_id": "cleanup_execute_and_undo",
+  "description": "Execute one cleanup unit and undo it.",
+  "tags": ["cleanup", "undo"],
+  "turns": [
+    {
+      "user": "Execute the first cleanup unit",
+      "checks": [
+        {"type": "assistant_contains_all", "values": ["Executed", "Undo"]},
+        {"type": "tool_call_matches", "tool": "cleanup", "arguments": {"dry_run": false, "scope": "first_unit"}}
+      ]
+    },
+    {
+      "user": "Undo that",
+      "checks": [
+        {"type": "assistant_contains_all", "values": ["Undid"]},
+        {"type": "tool_call_matches", "tool": "undo", "arguments": {"action": "cleanup"}}
+      ]
+    }
+  ]
+}

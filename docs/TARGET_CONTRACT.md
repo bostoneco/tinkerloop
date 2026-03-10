@@ -5,6 +5,10 @@ Tinkerloop is implemented in Python, but the target app under test does not need
 The public boundary is the target contract.
 Each target app should own its own Tinkerloop integration in the target repo.
 
+The CLI can load an adapter through:
+- an import path such as `your_project.tinkerloop_adapter:create_adapter`
+- a file path such as `/path/to/target_adapter.py:create_adapter`
+
 ## Local Adapter Contract
 
 The current local contract is the `AppAdapter` surface:

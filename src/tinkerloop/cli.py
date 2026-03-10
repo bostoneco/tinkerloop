@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import importlib.util
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -25,10 +26,32 @@ def load_adapter(factory_path: str):
     module_name, _, attr_name = factory_path.partition(":")
     if not module_name or not attr_name:
         raise ValueError(f"Invalid adapter factory path: {factory_path}")
-    module = importlib.import_module(module_name)
+    module = _load_adapter_module(module_name)
     factory = getattr(module, attr_name)
     adapter = factory()
     return adapter
+
+
+def _load_adapter_module(module_name: str):
+    file_path = Path(module_name).expanduser()
+    looks_like_file = file_path.suffix == ".py" or any(
+        marker in module_name for marker in ("/", "\\")
+    )
+    if looks_like_file:
+        resolved = file_path.resolve()
+        if not resolved.is_file():
+            raise FileNotFoundError(f"Adapter module file not found: {resolved}")
+        spec = importlib.util.spec_from_file_location(
+            f"tinkerloop_target_adapter_{resolved.stem}_{abs(hash(str(resolved)))}",
+            resolved,
+        )
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Could not load adapter module from file: {resolved}")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules.setdefault(spec.name, module)
+        spec.loader.exec_module(module)
+        return module
+    return importlib.import_module(module_name)
 
 
 def resolve_runtime_selection(
@@ -178,7 +201,11 @@ def _prompt_for_runtime_candidate(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run Tinkerloop scenarios")
-    parser.add_argument("--adapter", required=True, help="Adapter factory import path")
+    parser.add_argument(
+        "--adapter",
+        required=True,
+        help="Adapter factory import path or file path (<module-or-file>:<factory>)",
+    )
     parser.add_argument("--user-id", required=True)
     parser.add_argument("--inner-provider", default="", help="Override inner provider")
     parser.add_argument("--inner-model", default="", help="Override inner model")
