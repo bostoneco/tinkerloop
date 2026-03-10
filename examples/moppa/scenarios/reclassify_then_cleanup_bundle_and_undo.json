@@ -10,14 +10,16 @@
         {
           "type": "assistant_contains_all",
           "values": [
-            "Preview for",
-            "Target Gmail category:",
-            "Nothing has changed yet."
+            "Here is the low-risk bundle I would run for you:",
+            "First, fix Gmail tab placement",
+            "Then clean the backlog in this order:",
+            "Nothing has changed yet.",
+            "say `go for it`"
           ]
         },
         {
           "type": "tool_used",
-          "values": ["organize"]
+          "values": ["organize", "cleanup", "mailbox"]
         }
       ]
     },
