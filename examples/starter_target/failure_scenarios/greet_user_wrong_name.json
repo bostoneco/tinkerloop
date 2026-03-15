@@ -1,0 +1,20 @@
+{
+  "scenario_id": "starter_greet_user_wrong_name",
+  "description": "Deliberately fail by expecting the wrong profile name.",
+  "tags": ["starter", "failure-example"],
+  "turns": [
+    {
+      "user": "Say hello and include the user's name.",
+      "checks": [
+        {
+          "type": "assistant_contains_all",
+          "values": ["Hello, Grace"]
+        },
+        {
+          "type": "tool_used",
+          "values": ["lookup_profile"]
+        }
+      ]
+    }
+  ]
+}

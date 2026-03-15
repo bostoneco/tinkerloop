@@ -4,19 +4,19 @@ from tinkerloop.adapters import PythonAppAdapter
 from tinkerloop.models import RuntimeSpec
 
 
-class DemoAppAdapter(PythonAppAdapter):
+class StarterTargetAdapter(PythonAppAdapter):
     def runtime_spec(self, *, user_id: str) -> RuntimeSpec | None:
         return RuntimeSpec(
             provider="example",
-            model="demo-app",
+            model="starter-target",
             source="example_adapter_defaults",
             confidence="high",
-            reason="The bundled demo target uses a fixed example runtime.",
+            reason="The starter target uses a fixed example runtime.",
         )
 
 
 def create_adapter() -> PythonAppAdapter:
-    return DemoAppAdapter(
-        handler_path="examples.demo_app.app:handle_user_message",
-        patch_targets=["examples.demo_app.app:execute_tool"],
+    return StarterTargetAdapter(
+        handler_path="examples.starter_target.app:handle_user_message",
+        patch_targets=["examples.starter_target.app:execute_tool"],
     )

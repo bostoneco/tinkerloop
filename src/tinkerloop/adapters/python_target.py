@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import importlib
 import json
-import os
 import sys
 import time
 from pathlib import Path
 from typing import Any, Callable
 
 from tinkerloop.adapters.base import AppAdapter, TraceRecorder
+from tinkerloop.adapters.env_files import load_env_file
 from tinkerloop.models import ToolTrace
 
 
@@ -20,14 +20,9 @@ class ToolPatchRecorder(TraceRecorder):
 
     def __enter__(self) -> "ToolPatchRecorder":
         for patch_target in self._patch_targets:
-            module_name, _, attr_name = patch_target.rpartition(":")
-            if not module_name or not attr_name:
-                continue
-            try:
-                module = importlib.import_module(module_name)
-                original = getattr(module, attr_name)
-            except Exception:
-                continue
+            module, attr_name, original = _load_module_attr(patch_target, label="patch target")
+            if not callable(original):
+                raise TypeError(f"Patch target is not callable: {patch_target}")
 
             def wrapped(
                 tool_name: str,
@@ -108,67 +103,39 @@ class PythonAppAdapter(AppAdapter):
             "repo_root": str(self.repo_root) if self.repo_root else "",
         }
 
-    def _load_target_attr(self, import_path: str) -> Any:
-        self._prepare()
-        module_name, _, attr_name = import_path.partition(":")
-        if not module_name or not attr_name:
-            raise ValueError(f"Invalid import path: {import_path}")
-        module = importlib.import_module(module_name)
-        return getattr(module, attr_name)
-
-    def _read_env_values(self) -> dict[str, str]:
-        values: dict[str, str] = {}
-        for env_file in self.env_files:
-            values.update(self._parse_env_file(env_file))
-        return values
-
     def _prepare(self) -> None:
         if self._prepared:
             return
+        cwd = str(Path.cwd())
+        if cwd not in sys.path:
+            sys.path.insert(0, cwd)
         if self.repo_root and str(self.repo_root) not in sys.path:
             sys.path.insert(0, str(self.repo_root))
         for env_file in self.env_files:
-            self._load_env_file(env_file)
+            load_env_file(env_file)
         self._handler = self._resolve_callable(self.handler_path)
         self._prepared = True
 
     @staticmethod
     def _resolve_callable(import_path: str) -> Callable[..., str]:
-        module_name, _, attr_name = import_path.partition(":")
-        if not module_name or not attr_name:
-            raise ValueError(f"Invalid import path: {import_path}")
-        module = importlib.import_module(module_name)
-        target = getattr(module, attr_name)
+        _, _, target = _load_module_attr(import_path, label="handler path")
         if not callable(target):
             raise TypeError(f"Import path is not callable: {import_path}")
         return target
 
-    @staticmethod
-    def _load_env_file(path: Path) -> None:
-        if not path.is_file():
-            return
-        for raw_line in path.read_text(encoding="utf-8").splitlines():
-            line = raw_line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, _, value = line.partition("=")
-            key = key.strip()
-            value = value.strip().strip('"').strip("'")
-            if key and key not in os.environ:
-                os.environ[key] = value
 
-    @staticmethod
-    def _parse_env_file(path: Path) -> dict[str, str]:
-        values: dict[str, str] = {}
-        if not path.is_file():
-            return values
-        for raw_line in path.read_text(encoding="utf-8").splitlines():
-            line = raw_line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, _, value = line.partition("=")
-            key = key.strip()
-            value = value.strip().strip('"').strip("'")
-            if key:
-                values[key] = value
-        return values
+def _load_module_attr(import_path: str, *, label: str) -> tuple[object, str, Any]:
+    module_name, _, attr_name = import_path.partition(":")
+    if not module_name or not attr_name:
+        raise ValueError(f"Invalid {label}: {import_path}")
+    try:
+        module = importlib.import_module(module_name)
+    except ImportError as exc:
+        raise ImportError(f"Could not import module `{module_name}` for {label} `{import_path}`.") from exc
+    try:
+        target = getattr(module, attr_name)
+    except AttributeError as exc:
+        raise AttributeError(
+            f"Module `{module_name}` does not define `{attr_name}` for {label} `{import_path}`."
+        ) from exc
+    return module, attr_name, target

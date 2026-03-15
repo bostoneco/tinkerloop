@@ -75,6 +75,22 @@ This keeps Tinkerloop:
 - concrete enough to be immediately useful
 - small enough to audit and extend
 
+## `v0.x` Alpha Boundary
+
+For the first public `alpha`, the architecture promise is intentionally narrow:
+
+- local adapter-driven execution is supported
+- deterministic checks are the first-line evaluation surface
+- JSON reports are the stable artifact boundary
+- target-specific logic stays outside the core engine
+
+The first public `alpha` does not promise:
+
+- remote-driver stability
+- benchmark-grade cross-target comparability
+- production-side execution surfaces
+- autonomous patch or deploy loops
+
 ## Security Direction
 
 The long-term contract is stricter than the current stopgap.
@@ -87,3 +103,4 @@ Tinkerloop should eventually integrate with target repos through a fixed target-
 - no public backdoor endpoints
 
 For AWS apps, the preferred direction is a dedicated non-prod driver function invoked through IAM.
+That remains future work rather than a release blocker for the first public `alpha`.

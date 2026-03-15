@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 from tinkerloop.adapters.base import AppAdapter, TraceRecorder
+from tinkerloop.adapters.env_files import parse_env_file
 from tinkerloop.models import ToolTrace
 
 
@@ -83,30 +84,9 @@ class CommandAppAdapter(AppAdapter):
             "timeout_seconds": self.timeout_seconds,
         }
 
-    def _read_env_values(self) -> dict[str, str]:
-        values: dict[str, str] = {}
-        for env_file in self.env_files:
-            values.update(self._parse_env_file(env_file))
-        return values
-
     def _build_env(self) -> dict[str, str]:
         env = dict(os.environ)
-        env.update(self._read_env_values())
+        for env_file in self.env_files:
+            env.update(parse_env_file(env_file))
         env.update(self.env_overrides)
         return env
-
-    @staticmethod
-    def _parse_env_file(path: Path) -> dict[str, str]:
-        values: dict[str, str] = {}
-        if not path.is_file():
-            return values
-        for raw_line in path.read_text(encoding="utf-8").splitlines():
-            line = raw_line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, _, value = line.partition("=")
-            key = key.strip()
-            value = value.strip().strip('"').strip("'")
-            if key:
-                values[key] = value
-        return values

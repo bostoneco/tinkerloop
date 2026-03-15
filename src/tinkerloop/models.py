@@ -32,7 +32,6 @@ class ScenarioCheck:
     value: str | int | float | bool | None = None
     tool: str | None = None
     arguments: dict[str, Any] = field(default_factory=dict)
-    pattern: str | None = None
     max: int | None = None
 
 

@@ -1,0 +1,25 @@
+{
+  "scenario_id": "starter_greet_user_by_name",
+  "description": "Confirm the starter target can look up a profile and greet the user by name.",
+  "tags": ["starter", "greeting"],
+  "turns": [
+    {
+      "user": "Say hello and include the user's name.",
+      "checks": [
+        {
+          "type": "assistant_contains_all",
+          "values": ["Hello, Ada", "wired up correctly"]
+        },
+        {
+          "type": "tool_used",
+          "values": ["lookup_profile"]
+        },
+        {
+          "type": "tool_call_matches",
+          "tool": "lookup_profile",
+          "arguments": {"name": "Ada"}
+        }
+      ]
+    }
+  ]
+}
