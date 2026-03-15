@@ -1,7 +1,10 @@
 import json
 
+import pytest
+
 from tinkerloop.adapters.base import AppAdapter, TraceRecorder
 from tinkerloop.engine import (
+    SUPPORTED_CHECK_TYPES,
     build_diagnosis_artifact,
     build_failure_artifact,
     build_report_payload,
@@ -11,6 +14,7 @@ from tinkerloop.engine import (
     load_scenarios,
     run_scenario,
     run_scenarios,
+    select_scenarios,
     write_report,
 )
 from tinkerloop.models import Scenario, ScenarioCheck, ScenarioTurn, ToolTrace
@@ -76,6 +80,43 @@ def test_evaluate_checks_matches_tool_call_and_reply():
     assert all(item.passed for item in results)
 
 
+def test_evaluate_checks_supports_additional_check_types():
+    checks = [
+        ScenarioCheck(type="assistant_contains_any", values=["missing", "Undo"]),
+        ScenarioCheck(type="assistant_not_contains", values=["forbidden"]),
+        ScenarioCheck(type="tool_call_count_at_most", tool="cleanup", max=1),
+    ]
+
+    results = evaluate_checks(
+        assistant="Preview for the first unit. Undo will be available after execution.",
+        tool_traces=[
+            ToolTrace(
+                tool_name="cleanup",
+                arguments={"dry_run": True},
+                correlation_id=None,
+                duration_ms=10,
+                status="ok",
+                user_safe_summary="Dry run",
+                raw_result={"status": "ok"},
+            )
+        ],
+        checks=checks,
+    )
+
+    assert all(item.passed for item in results)
+
+
+def test_supported_check_types_constant_matches_engine_surface():
+    assert SUPPORTED_CHECK_TYPES == (
+        "assistant_contains_all",
+        "assistant_contains_any",
+        "assistant_not_contains",
+        "tool_used",
+        "tool_call_count_at_most",
+        "tool_call_matches",
+    )
+
+
 def test_load_scenarios_parses_json_file(tmp_path):
     scenario_file = tmp_path / "scenario.json"
     scenario_file.write_text(
@@ -99,6 +140,38 @@ def test_load_scenarios_parses_json_file(tmp_path):
     assert len(scenarios) == 1
     assert scenarios[0].scenario_id == "cleanup_preview_first_unit"
     assert scenarios[0].turns[0].user == "Preview the first cleanup unit"
+
+
+def test_load_scenarios_fails_for_missing_path(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        load_scenarios(tmp_path / "missing")
+
+
+def test_select_scenarios_applies_filters():
+    scenarios = [
+        Scenario(
+            scenario_id="cleanup_preview_first_unit",
+            description="demo",
+            turns=[],
+            tags=["cleanup", "preview"],
+        ),
+        Scenario(
+            scenario_id="destructive_cleanup",
+            description="demo",
+            turns=[],
+            destructive=True,
+            tags=["cleanup"],
+        ),
+    ]
+
+    selected = select_scenarios(
+        scenarios,
+        allow_destructive=False,
+        scenario_filter={"cleanup_preview_first_unit", "destructive_cleanup"},
+        tag_filter={"preview"},
+    )
+
+    assert [scenario.scenario_id for scenario in selected] == ["cleanup_preview_first_unit"]
 
 
 def test_run_scenario_uses_adapter_and_checks():
@@ -154,11 +227,20 @@ def test_build_report_payload_collects_failures():
         user_id="u1",
     )
 
-    payload = build_report_payload([failed_result], metadata={"adapter": {"name": "dummy"}})
+    payload = build_report_payload(
+        [failed_result],
+        metadata={
+            "adapter": {"name": "dummy"},
+            "preflight": {"status": "ready"},
+            "selected_runtime": {"provider": "bedrock", "model": "us.amazon.nova-pro-v1:0"},
+        },
+    )
 
     assert payload["schema_version"] == "tinkerloop.report.v1"
     assert payload["summary"]["scenario_failed"] == 1
     assert payload["summary"]["failed_scenario_ids"] == ["cleanup_preview_first_unit"]
+    assert payload["summary"]["preflight_status"] == "ready"
+    assert payload["summary"]["selected_runtime"]["provider"] == "bedrock"
     assert payload["failures"][0]["scenario_id"] == "cleanup_preview_first_unit"
     assert payload["failures"][0]["failed_turns"][0]["failing_checks"][0]["check_type"] == (
         "assistant_contains_all"
@@ -251,10 +333,14 @@ def test_build_failure_artifact_uses_only_failed_results():
         user_id="u1",
     )
 
-    payload = build_failure_artifact([passed_result, failed_result], metadata={"adapter": {}})
+    payload = build_failure_artifact(
+        [passed_result, failed_result],
+        metadata={"adapter": {}, "selected_runtime": {"provider": "bedrock", "model": "m1"}},
+    )
 
     assert payload["summary"]["failed_scenario_count"] == 1
     assert payload["summary"]["failed_scenario_ids"] == ["cleanup_first_unit"]
+    assert payload["summary"]["selected_runtime"]["model"] == "m1"
 
 
 def test_build_diagnosis_artifact_is_compact_and_actionable():
@@ -275,10 +361,14 @@ def test_build_diagnosis_artifact_is_compact_and_actionable():
         user_id="u1",
     )
 
-    payload = build_diagnosis_artifact([failed_result], metadata={"adapter": {"name": "dummy"}})
+    payload = build_diagnosis_artifact(
+        [failed_result],
+        metadata={"adapter": {"name": "dummy"}, "preflight": {"status": "ready"}},
+    )
 
     assert payload["schema_version"] == "tinkerloop.diagnosis.v1"
     assert payload["summary"]["failed_scenario_ids"] == ["cleanup_first_unit"]
+    assert payload["summary"]["preflight_status"] == "ready"
     assert payload["diagnosis_items"][0]["scenario_id"] == "cleanup_first_unit"
     assert payload["diagnosis_items"][0]["turns"][0]["assistant_excerpt"]
     assert payload["rerun"]["scenario_ids"] == ["cleanup_first_unit"]

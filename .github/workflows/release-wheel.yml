@@ -1,0 +1,43 @@
+name: Release Wheel
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .[dev]
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Build wheel
+        run: python -m build --wheel
+
+      - name: Upload wheel to workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tinkerloop-wheel
+          path: dist/*.whl
+
+      - name: Attach wheel to GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$RELEASE_TAG" dist/*.whl --clobber

@@ -337,7 +337,7 @@ Implemented now:
 - stable `latest.json`
 - stable `latest-failures.json`
 - failed-scenario ids recorded in report summaries
-- failed-scenario ids loadable from a prior report file or report directory
+- failed-scenario ids loadable from a report file or report directory
 
 Still missing:
 - richer diagnosis payload tailored for outer developer-agent handoff
@@ -361,7 +361,7 @@ Required behavior:
 - always keep a human gate before pushing or deploying
 
 Implemented now:
-- failed-scenario reruns from prior reports
+- failed-scenario reruns from report artifacts
 - compact diagnosis artifact for failed scenarios
 - tag-based scoped runs for limited feature slices
 

@@ -5,9 +5,10 @@ from pathlib import Path
 
 import pytest
 
+from tinkerloop.__about__ import __version__
 from tinkerloop.adapters.base import AppAdapter
 from tinkerloop.cli import load_adapter, main, resolve_runtime_selection
-from tinkerloop.models import PreflightResult, RuntimeSpec
+from tinkerloop.models import PreflightResult, RuntimeSpec, Scenario, ScenarioTurn
 
 
 class DummyAdapter(AppAdapter):
@@ -166,6 +167,45 @@ def create_adapter():
     assert type(adapter).__name__ == "FileAdapter"
 
 
+def test_load_adapter_supports_import_path_from_current_working_directory(monkeypatch, tmp_path):
+    package_dir = tmp_path / "target_pkg"
+    package_dir.mkdir()
+    (package_dir / "__init__.py").write_text("", encoding="utf-8")
+    (package_dir / "adapter.py").write_text(
+        """
+from tinkerloop.adapters.base import AppAdapter
+from tinkerloop.models import PreflightResult, RuntimeSpec
+
+
+class ImportAdapter(AppAdapter):
+    def send_user_turn(self, *, user_id: str, user_text: str, correlation_id: str) -> str:
+        return "ok"
+
+    def preflight(self, *, user_id: str) -> PreflightResult:
+        return PreflightResult(status="ready", summary="ready")
+
+    def runtime_spec(self, *, user_id: str) -> RuntimeSpec | None:
+        return RuntimeSpec(
+            provider="example",
+            model="cwd-import",
+            source="test",
+            confidence="high",
+            reason="test",
+        )
+
+
+def create_adapter():
+    return ImportAdapter()
+""".strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    adapter = load_adapter("target_pkg.adapter:create_adapter")
+
+    assert type(adapter).__name__ == "ImportAdapter"
+
+
 def test_main_uses_failed_from_to_filter_scenarios(monkeypatch, tmp_path):
     adapter = DummyAdapter(
         resolved=RuntimeSpec(
@@ -183,7 +223,13 @@ def test_main_uses_failed_from_to_filter_scenarios(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         "tinkerloop.cli.load_scenarios",
-        lambda _path: [],
+        lambda _path: [
+            Scenario(
+                scenario_id="cleanup_preview_first_unit",
+                description="demo",
+                turns=[ScenarioTurn(user="Preview the first cleanup unit")],
+            )
+        ],
     )
     monkeypatch.setattr(
         "tinkerloop.cli.load_failed_scenario_ids",
@@ -200,10 +246,9 @@ def test_main_uses_failed_from_to_filter_scenarios(monkeypatch, tmp_path):
         "tinkerloop.cli.write_report",
         lambda results, *, output_dir, metadata=None: Path(output_dir) / "latest.json",
     )
-    monkeypatch.setattr(
-        "sys.argv",
+    exit_code = main(
         [
-            "tinkerloop",
+            "run",
             "--adapter",
             "tests.fixtures.sample_adapter:create_adapter",
             "--user-id",
@@ -214,10 +259,8 @@ def test_main_uses_failed_from_to_filter_scenarios(monkeypatch, tmp_path):
             str(tmp_path),
             "--report-dir",
             str(tmp_path),
-        ],
+        ]
     )
-
-    exit_code = main()
 
     assert exit_code == 0
     assert captured["scenario_filter"] == {"cleanup_preview_first_unit"}
@@ -236,7 +279,17 @@ def test_main_passes_tag_filter(monkeypatch, tmp_path):
     )
     captured = {}
     monkeypatch.setattr("tinkerloop.cli.load_adapter", lambda _factory_path: adapter)
-    monkeypatch.setattr("tinkerloop.cli.load_scenarios", lambda _path: [])
+    monkeypatch.setattr(
+        "tinkerloop.cli.load_scenarios",
+        lambda _path: [
+            Scenario(
+                scenario_id="cleanup_preview_first_unit",
+                description="demo",
+                turns=[ScenarioTurn(user="Preview the first cleanup unit")],
+                tags=["cleanup", "preview"],
+            )
+        ],
+    )
     monkeypatch.setattr(
         "tinkerloop.cli.run_scenarios",
         lambda scenarios, *, adapter, user_id, allow_destructive, scenario_filter, tag_filter: (
@@ -247,10 +300,9 @@ def test_main_passes_tag_filter(monkeypatch, tmp_path):
         "tinkerloop.cli.write_report",
         lambda results, *, output_dir, metadata=None: Path(output_dir) / "latest.json",
     )
-    monkeypatch.setattr(
-        "sys.argv",
+    exit_code = main(
         [
-            "tinkerloop",
+            "run",
             "--adapter",
             "tests.fixtures.sample_adapter:create_adapter",
             "--user-id",
@@ -263,10 +315,177 @@ def test_main_passes_tag_filter(monkeypatch, tmp_path):
             "preview",
             "--report-dir",
             str(tmp_path),
-        ],
+        ]
     )
-
-    exit_code = main()
 
     assert exit_code == 0
     assert captured["tag_filter"] == {"cleanup", "preview"}
+
+
+def test_main_accepts_run_subcommand(monkeypatch, tmp_path):
+    adapter = DummyAdapter(
+        resolved=RuntimeSpec(
+            provider="bedrock",
+            model="us.amazon.nova-pro-v1:0",
+            source="target_repo_defaults",
+            confidence="high",
+            reason="Resolved.",
+        )
+    )
+    captured = {}
+    monkeypatch.setattr("tinkerloop.cli.load_adapter", lambda _factory_path: adapter)
+    monkeypatch.setattr(
+        "tinkerloop.cli.load_scenarios",
+        lambda _path: [
+            Scenario(
+                scenario_id="cleanup_preview_first_unit",
+                description="demo",
+                turns=[ScenarioTurn(user="Preview the first cleanup unit")],
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "tinkerloop.cli.run_scenarios",
+        lambda scenarios, *, adapter, user_id, allow_destructive, scenario_filter, tag_filter: (
+            captured.update({"user_id": user_id, "scenario_filter": scenario_filter}) or []
+        ),
+    )
+    monkeypatch.setattr(
+        "tinkerloop.cli.write_report",
+        lambda results, *, output_dir, metadata=None: Path(output_dir) / "latest.json",
+    )
+
+    exit_code = main(
+        [
+            "run",
+            "--adapter",
+            "tests.fixtures.sample_adapter:create_adapter",
+            "--user-id",
+            "u1",
+            "--scenarios",
+            str(tmp_path),
+            "--report-dir",
+            str(tmp_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured["user_id"] == "u1"
+    assert captured["scenario_filter"] is None
+
+
+def test_main_fails_when_no_scenarios_loaded(monkeypatch, tmp_path, capsys):
+    adapter = DummyAdapter(
+        resolved=RuntimeSpec(
+            provider="bedrock",
+            model="us.amazon.nova-pro-v1:0",
+            source="target_repo_defaults",
+            confidence="high",
+            reason="Resolved.",
+        )
+    )
+    monkeypatch.setattr("tinkerloop.cli.load_adapter", lambda _factory_path: adapter)
+    monkeypatch.setattr("tinkerloop.cli.load_scenarios", lambda _path: [])
+    monkeypatch.setattr(
+        "tinkerloop.cli.write_report",
+        lambda results, *, output_dir, metadata=None: Path(output_dir) / "latest.json",
+    )
+    exit_code = main(
+        [
+            "run",
+            "--adapter",
+            "tests.fixtures.sample_adapter:create_adapter",
+            "--user-id",
+            "u1",
+            "--scenarios",
+            str(tmp_path),
+            "--report-dir",
+            str(tmp_path),
+        ]
+    )
+
+    assert exit_code == 2
+    assert "No scenarios were selected to run." in capsys.readouterr().err
+
+
+def test_main_fails_when_filters_select_no_scenarios(monkeypatch, tmp_path, capsys):
+    adapter = DummyAdapter(
+        resolved=RuntimeSpec(
+            provider="bedrock",
+            model="us.amazon.nova-pro-v1:0",
+            source="target_repo_defaults",
+            confidence="high",
+            reason="Resolved.",
+        )
+    )
+    monkeypatch.setattr("tinkerloop.cli.load_adapter", lambda _factory_path: adapter)
+    monkeypatch.setattr(
+        "tinkerloop.cli.load_scenarios",
+        lambda _path: [
+            Scenario(
+                scenario_id="cleanup_preview_first_unit",
+                description="demo",
+                turns=[ScenarioTurn(user="Preview the first cleanup unit")],
+                tags=["cleanup"],
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "tinkerloop.cli.write_report",
+        lambda results, *, output_dir, metadata=None: Path(output_dir) / "latest.json",
+    )
+    exit_code = main(
+        [
+            "run",
+            "--adapter",
+            "tests.fixtures.sample_adapter:create_adapter",
+            "--user-id",
+            "u1",
+            "--scenarios",
+            str(tmp_path),
+            "--tag",
+            "preview",
+            "--report-dir",
+            str(tmp_path),
+        ]
+    )
+
+    assert exit_code == 2
+    assert "No scenarios matched the current selection" in capsys.readouterr().err
+
+
+def test_main_prints_version_and_exits(monkeypatch, capsys):
+    monkeypatch.setattr("sys.argv", ["tinkerloop", "--version"])
+
+    with pytest.raises(SystemExit) as exc:
+        main()
+
+    assert exc.value.code == 0
+    assert f"tinkerloop {__version__}" in capsys.readouterr().out
+
+
+def test_main_help_lists_run_command(capsys):
+    with pytest.raises(SystemExit) as exc:
+        main(["--help"])
+
+    assert exc.value.code == 0
+    output = " ".join(capsys.readouterr().out.split())
+    assert "run" in output
+    assert "Use `tinkerloop run ...` to execute scenarios." in output
+
+
+def test_main_rejects_flag_only_invocation(capsys):
+    with pytest.raises(SystemExit) as exc:
+        main(
+            [
+                "--adapter",
+                "tests.fixtures.sample_adapter:create_adapter",
+                "--user-id",
+                "u1",
+                "--scenarios",
+                "scenarios",
+            ]
+        )
+
+    assert exc.value.code == 2
+    assert "Missing command `run`" in capsys.readouterr().err

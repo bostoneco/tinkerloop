@@ -17,10 +17,23 @@ from tinkerloop.models import (
     TurnResult,
 )
 
+SUPPORTED_CHECK_TYPES = (
+    "assistant_contains_all",
+    "assistant_contains_any",
+    "assistant_not_contains",
+    "tool_used",
+    "tool_call_count_at_most",
+    "tool_call_matches",
+)
+
 
 def load_scenarios(path: str | Path) -> list[Scenario]:
     path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"Scenario path not found: {path}")
     files = [path] if path.is_file() else sorted(path.glob("*.json"))
+    if not files:
+        raise FileNotFoundError(f"No scenario files found in {path}")
     scenarios: list[Scenario] = []
     for file_path in files:
         with open(file_path, encoding="utf-8") as f:
@@ -44,6 +57,25 @@ def load_scenarios(path: str | Path) -> list[Scenario]:
     return scenarios
 
 
+def select_scenarios(
+    scenarios: list[Scenario],
+    *,
+    allow_destructive: bool = False,
+    scenario_filter: set[str] | None = None,
+    tag_filter: set[str] | None = None,
+) -> list[Scenario]:
+    selected: list[Scenario] = []
+    for scenario in scenarios:
+        if scenario_filter and scenario.scenario_id not in scenario_filter:
+            continue
+        if tag_filter and not tag_filter.intersection(set(scenario.tags)):
+            continue
+        if scenario.destructive and not allow_destructive:
+            continue
+        selected.append(scenario)
+    return selected
+
+
 def run_scenarios(
     scenarios: list[Scenario],
     *,
@@ -54,13 +86,12 @@ def run_scenarios(
     tag_filter: set[str] | None = None,
 ) -> list[ScenarioResult]:
     results: list[ScenarioResult] = []
-    for scenario in scenarios:
-        if scenario_filter and scenario.scenario_id not in scenario_filter:
-            continue
-        if tag_filter and not tag_filter.intersection(set(scenario.tags)):
-            continue
-        if scenario.destructive and not allow_destructive:
-            continue
+    for scenario in select_scenarios(
+        scenarios,
+        allow_destructive=allow_destructive,
+        scenario_filter=scenario_filter,
+        tag_filter=tag_filter,
+    ):
         results.append(run_scenario(scenario, adapter=adapter, user_id=user_id))
     return results
 
@@ -266,20 +297,23 @@ def build_report_payload(
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     generated_at = int(time.time())
-    failed_scenario_ids = [result.scenario_id for result in results if not result.passed]
+    failures = _collect_failures(results)
+    failed_scenario_ids = [item["scenario_id"] for item in failures]
     failed_turns = sum(1 for result in results for turn in result.turns if not turn.passed)
+    metadata = metadata or {}
     return {
         "schema_version": "tinkerloop.report.v1",
         "generated_at": generated_at,
-        "metadata": metadata or {},
+        "metadata": metadata,
         "summary": {
             "scenario_total": len(results),
             "scenario_passed": sum(1 for result in results if result.passed),
             "scenario_failed": sum(1 for result in results if not result.passed),
             "failed_turn_total": failed_turns,
             "failed_scenario_ids": failed_scenario_ids,
+            **_report_context(metadata),
         },
-        "failures": _collect_failures(results),
+        "failures": failures,
         "results": [asdict(result) for result in results],
     }
 
@@ -290,13 +324,15 @@ def build_failure_artifact(
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     failures = _collect_failures(results)
+    metadata = metadata or {}
     return {
         "schema_version": "tinkerloop.failures.v1",
         "generated_at": int(time.time()),
-        "metadata": metadata or {},
+        "metadata": metadata,
         "summary": {
             "failed_scenario_count": len(failures),
             "failed_scenario_ids": [item["scenario_id"] for item in failures],
+            **_report_context(metadata),
         },
         "failures": failures,
     }
@@ -334,6 +370,7 @@ def build_diagnosis_artifact(
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     failures = _collect_failures(results)
+    metadata = metadata or {}
     diagnosis_items = []
     for failure in failures:
         primary_symptoms: list[str] = []
@@ -366,10 +403,11 @@ def build_diagnosis_artifact(
     return {
         "schema_version": "tinkerloop.diagnosis.v1",
         "generated_at": int(time.time()),
-        "metadata": metadata or {},
+        "metadata": metadata,
         "summary": {
             "failed_scenario_count": len(diagnosis_items),
             "failed_scenario_ids": failed_ids,
+            **_report_context(metadata),
         },
         "diagnosis_items": diagnosis_items,
         "rerun": {
@@ -413,3 +451,27 @@ def _excerpt(text: str, *, limit: int = 240) -> str:
     if len(normalized) <= limit:
         return normalized
     return normalized[: limit - 3] + "..."
+
+
+def _report_context(metadata: dict[str, Any]) -> dict[str, Any]:
+    context: dict[str, Any] = {}
+
+    preflight = metadata.get("preflight")
+    if isinstance(preflight, dict):
+        status = str(preflight.get("status") or "").strip()
+        if status:
+            context["preflight_status"] = status
+
+    runtime = metadata.get("selected_runtime")
+    if not isinstance(runtime, dict):
+        runtime = metadata.get("resolved_runtime")
+    if isinstance(runtime, dict):
+        provider = str(runtime.get("provider") or "").strip()
+        model = str(runtime.get("model") or "").strip()
+        if provider or model:
+            context["selected_runtime"] = {
+                "provider": provider,
+                "model": model,
+            }
+
+    return context

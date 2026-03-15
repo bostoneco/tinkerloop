@@ -50,7 +50,7 @@ Required:
 - explicit overrides for provider/model
 
 Status:
-- partially implemented
+- implemented for the current local adapter contract
 
 ## Phase T6: Improvement Loop
 

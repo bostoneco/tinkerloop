@@ -69,7 +69,7 @@ Current checks are:
 After editing scenarios, run the smallest slice that proves the change:
 
 ```bash
-PYTHONPATH=src python -m tinkerloop.cli \
+tinkerloop run \
   --adapter <adapter-factory> \
   --user-id <user-id> \
   --scenarios <scenario-dir> \

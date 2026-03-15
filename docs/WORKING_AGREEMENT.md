@@ -42,7 +42,7 @@ If multiple scenario families fail for different reasons, split them into separa
 
 5. Rerun the failing slice first.
 After a change, rerun the smallest affected scope.
-Then use `--failed-from` to validate all failures from the prior run.
+Then use `--failed-from` to validate the failed set from report artifacts.
 
 6. End with a broader regression pass.
 Once targeted failures clear, rerun the broader tagged slice or full scenario set before considering the loop complete.
@@ -93,7 +93,7 @@ A loop is only complete when:
 - preflight is clean
 - runtime selection is explicit or confidently resolved
 - the targeted rerun passes
-- the prior failed set passes when rerun from artifacts
+- the failed set passes when rerun from artifacts
 - the broader regression scope appropriate to the change also passes
 
 ## Anti-Patterns
@@ -110,17 +110,19 @@ Avoid these:
 Narrow first:
 
 ```bash
-PYTHONPATH=src python -m tinkerloop.cli \
+tinkerloop \
+  run \
   --adapter <adapter-factory> \
   --user-id <user-id> \
   --scenarios <scenario-dir> \
   --tag <tag>
 ```
 
-Rerun prior failures:
+Rerun the failed set from report artifacts:
 
 ```bash
-PYTHONPATH=src python -m tinkerloop.cli \
+tinkerloop \
+  run \
   --adapter <adapter-factory> \
   --user-id <user-id> \
   --scenarios <scenario-dir> \

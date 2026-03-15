@@ -9,6 +9,23 @@ The CLI can load an adapter through:
 - an import path such as `your_project.tinkerloop_adapter:create_adapter`
 - a file path such as `/path/to/target_adapter.py:create_adapter`
 
+## Stable Local Contract For `v0.x`
+
+The supported `alpha` contract is local and adapter-owned.
+
+Supported now:
+
+- adapter loading through import path or file path
+- `AppAdapter` methods documented below
+- local execution through `PythonAppAdapter` and `CommandAppAdapter`
+- deterministic scenario checks and JSON report artifacts
+
+Not part of the first public `alpha` contract:
+
+- the future remote-driver contract
+- arbitrary remote execution surfaces
+- production-only target integrations
+
 ## Local Adapter Contract
 
 The current local contract is the `AppAdapter` surface:
@@ -74,3 +91,4 @@ Tinkerloop should be presented as:
 - a reusable outer-loop harness for orchestrator and MCP-style apps
 
 It should not require target apps to be Python.
+That remote contract is future work, not part of the first public `alpha`.

@@ -53,7 +53,7 @@ Do not assume the target repo sits next to Tinkerloop.
 Prefer explicit adapter and scenario paths:
 
 ```bash
-PYTHONPATH=/path/to/tinkerloop/src python -m tinkerloop.cli \
+tinkerloop run \
   --adapter /path/to/target-repo/tinkerloop_project/adapter.py:create_adapter \
   --user-id <user-id> \
   --scenarios /path/to/target-repo/tinkerloop_project/scenarios

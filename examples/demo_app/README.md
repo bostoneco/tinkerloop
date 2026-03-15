@@ -5,8 +5,8 @@ This is a tiny generic example target for Tinkerloop.
 Run it with:
 
 ```bash
-PYTHONPATH=src python -m tinkerloop.cli \
-  --adapter examples.demo_app.adapter:create_adapter \
+tinkerloop run \
+  --adapter examples/demo_app/adapter.py:create_adapter \
   --user-id demo-user \
   --scenarios examples/demo_app/scenarios
 ```

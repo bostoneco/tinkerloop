@@ -22,7 +22,7 @@ Start with:
    - `latest-diagnosis.json`
 4. Fix one bounded cause.
 5. Rerun the failing slice.
-6. Rerun the prior failed set with `--failed-from`.
+6. Rerun the failed set from report artifacts with `--failed-from`.
 7. Finish with the broader regression slice that matches the change.
 
 ## Canonical commands
@@ -30,17 +30,17 @@ Start with:
 Narrow first:
 
 ```bash
-PYTHONPATH=/path/to/tinkerloop/src python -m tinkerloop.cli \
+tinkerloop run \
   --adapter /path/to/target/adapter.py:create_adapter \
   --user-id <user-id> \
   --scenarios /path/to/target/scenarios \
   --tag <tag>
 ```
 
-Rerun prior failures:
+Rerun the failed set from report artifacts:
 
 ```bash
-PYTHONPATH=/path/to/tinkerloop/src python -m tinkerloop.cli \
+tinkerloop run \
   --adapter /path/to/target/adapter.py:create_adapter \
   --user-id <user-id> \
   --scenarios /path/to/target/scenarios \

@@ -3,15 +3,18 @@ from __future__ import annotations
 import argparse
 import importlib
 import importlib.util
+import json
 import sys
 from dataclasses import asdict
 from pathlib import Path
 
+from tinkerloop.__about__ import __version__
 from tinkerloop.adapters.base import AppAdapter
 from tinkerloop.engine import (
     load_failed_scenario_ids,
     load_scenarios,
     run_scenarios,
+    select_scenarios,
     summarize_results,
     write_report,
 )
@@ -51,6 +54,9 @@ def _load_adapter_module(module_name: str):
         sys.modules.setdefault(spec.name, module)
         spec.loader.exec_module(module)
         return module
+    cwd = str(Path.cwd())
+    if cwd not in sys.path:
+        sys.path.insert(0, cwd)
     return importlib.import_module(module_name)
 
 
@@ -199,8 +205,40 @@ def _prompt_for_runtime_candidate(
         print("Enter a valid number from the list, or `q` to cancel.", file=output_stream)
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Run Tinkerloop scenarios")
+def _write_error_report(
+    *,
+    report_dir: str,
+    metadata: dict[str, object],
+    message: str,
+    metadata_key: str | None = None,
+) -> int:
+    if metadata_key:
+        metadata[metadata_key] = message
+    report_file = write_report([], output_dir=report_dir, metadata=metadata)
+    print(message, file=sys.stderr)
+    print(f"Report: {report_file}", file=sys.stderr)
+    return 2
+
+
+def _format_empty_selection_error(
+    *,
+    scenario_filter: set[str],
+    tag_filter: set[str],
+    allow_destructive: bool,
+) -> str:
+    details: list[str] = []
+    if scenario_filter:
+        details.append(f"scenario ids={sorted(scenario_filter)}")
+    if tag_filter:
+        details.append(f"tags={sorted(tag_filter)}")
+    if not allow_destructive:
+        details.append("destructive scenarios excluded")
+    if not details:
+        return "No scenarios were selected to run."
+    return f"No scenarios matched the current selection ({', '.join(details)})."
+
+
+def _add_run_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--adapter",
         required=True,
@@ -241,7 +279,46 @@ def main() -> int:
         default="artifacts/reports",
         help="Where to write JSON reports",
     )
-    args = parser.parse_args()
+
+
+def _build_root_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="tinkerloop",
+        description="Tinkerloop CLI",
+        epilog="Use `tinkerloop run ...` to execute scenarios.",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
+    )
+    subparsers = parser.add_subparsers(dest="command", metavar="command")
+    run_parser = subparsers.add_parser(
+        "run",
+        help="Run scenarios against a target adapter",
+        description="Run Tinkerloop scenarios",
+    )
+    _add_run_arguments(run_parser)
+    return parser
+
+
+def _parse_args(argv: list[str]) -> argparse.Namespace:
+    root_parser = _build_root_parser()
+    if not argv:
+        root_parser.print_help()
+        raise SystemExit(0)
+    if argv[0] in {"-h", "--help", "--version"}:
+        root_parser.parse_args(argv)
+        raise AssertionError("parse_args should exit for top-level help/version")
+    if argv[0] == "run":
+        return root_parser.parse_args(argv)
+    if argv[0].startswith("-"):
+        root_parser.error("Missing command `run`. Use `tinkerloop run ...`.")
+    root_parser.error(f"Unknown command `{argv[0]}`. Use `tinkerloop run ...`.")
+    raise AssertionError("root_parser.error should exit")
+
+
+def _run_command(args: argparse.Namespace) -> int:
 
     adapter = load_adapter(args.adapter)
     preflight = adapter.preflight(user_id=str(args.user_id))
@@ -250,10 +327,11 @@ def main() -> int:
         "preflight": asdict(preflight),
     }
     if not preflight.ready:
-        report_file = write_report([], output_dir=args.report_dir, metadata=metadata)
-        print(preflight.summary, file=sys.stderr)
-        print(f"Report: {report_file}", file=sys.stderr)
-        return 2
+        return _write_error_report(
+            report_dir=args.report_dir,
+            metadata=metadata,
+            message=preflight.summary,
+        )
 
     try:
         _, runtime_metadata = resolve_runtime_selection(
@@ -263,23 +341,59 @@ def main() -> int:
             inner_model=str(args.inner_model),
         )
     except RuntimeError as exc:
-        metadata["runtime_error"] = str(exc)
-        report_file = write_report([], output_dir=args.report_dir, metadata=metadata)
-        print(str(exc), file=sys.stderr)
-        print(f"Report: {report_file}", file=sys.stderr)
-        return 2
+        return _write_error_report(
+            report_dir=args.report_dir,
+            metadata=metadata,
+            message=str(exc),
+            metadata_key="runtime_error",
+        )
 
     metadata.update(runtime_metadata)
-    scenarios = load_scenarios(args.scenarios)
-    scenario_filter = set(args.scenario) if args.scenario else set()
-    tag_filter = set(args.tag) if args.tag else set()
-    if args.failed_from:
-        failed_ids = load_failed_scenario_ids(args.failed_from)
-        scenario_filter.update(failed_ids)
-        metadata["rerun_failed_from"] = str(args.failed_from)
-        metadata["rerun_failed_scenario_ids"] = sorted(failed_ids)
+    try:
+        scenarios = load_scenarios(args.scenarios)
+        scenario_filter = set(args.scenario) if args.scenario else set()
+        tag_filter = set(args.tag) if args.tag else set()
+        if args.failed_from:
+            failed_ids = load_failed_scenario_ids(args.failed_from)
+            scenario_filter.update(failed_ids)
+            metadata["rerun_failed_from"] = str(args.failed_from)
+            metadata["rerun_failed_scenario_ids"] = sorted(failed_ids)
+    except (FileNotFoundError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        return _write_error_report(
+            report_dir=args.report_dir,
+            metadata=metadata,
+            message=str(exc),
+            metadata_key="scenario_error",
+        )
     if tag_filter:
         metadata["tag_filter"] = sorted(tag_filter)
+    metadata["loaded_scenario_count"] = len(scenarios)
+    metadata["scenario_filter"] = sorted(scenario_filter)
+    if not scenarios:
+        return _write_error_report(
+            report_dir=args.report_dir,
+            metadata=metadata,
+            message="No scenarios were selected to run.",
+            metadata_key="scenario_error",
+        )
+    selected_scenarios = select_scenarios(
+        scenarios,
+        allow_destructive=bool(args.allow_destructive),
+        scenario_filter=scenario_filter or None,
+        tag_filter=tag_filter or None,
+    )
+    metadata["selected_scenario_count"] = len(selected_scenarios)
+    if not selected_scenarios:
+        return _write_error_report(
+            report_dir=args.report_dir,
+            metadata=metadata,
+            message=_format_empty_selection_error(
+                scenario_filter=scenario_filter,
+                tag_filter=tag_filter,
+                allow_destructive=bool(args.allow_destructive),
+            ),
+            metadata_key="scenario_error",
+        )
     results = run_scenarios(
         scenarios,
         adapter=adapter,
@@ -292,6 +406,11 @@ def main() -> int:
     print(summarize_results(results))
     print(f"Report: {report_file}")
     return 0 if all(result.passed for result in results) else 1
+
+
+def main(argv: list[str] | None = None) -> int:
+    parsed = _parse_args(list(sys.argv[1:] if argv is None else argv))
+    return _run_command(parsed)
 
 
 if __name__ == "__main__":
