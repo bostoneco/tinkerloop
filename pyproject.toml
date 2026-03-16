@@ -7,8 +7,22 @@ name = "tinkerloop"
 dynamic = ["version"]
 description = "Eval-driven test/fix/improve harness for orchestrator-based apps"
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.12"
 dependencies = []
+authors = [
+    { name = "Bostone Co." },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+]
+[project.urls]
+Repository = "https://github.com/bostoneco/tinkerloop"
+Documentation = "https://github.com/bostoneco/tinkerloop#readme"
 
 [project.optional-dependencies]
 dev = [

@@ -1,7 +1,6 @@
 # Release Checklist
 
-This checklist is for a private release-prep flow today and a public `alpha`
-release later.
+Use this checklist when cutting a release (e.g. a public `alpha` or patch release).
 
 ## Contract And Docs
 

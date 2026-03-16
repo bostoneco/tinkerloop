@@ -26,7 +26,4 @@ that violate this code of conduct.
 
 ## Reporting
 
-While the project remains private, report concerns through the maintainers'
-existing internal channels.
-If and when the project becomes public, this file should be updated with a
-public contact path.
+Report concerns to the project maintainers (e.g. by opening an issue on the repository, or by contacting the maintainers through the repository). For sensitive matters, use a private channel such as [GitHub’s private security reporting](https://github.com/bostoneco/tinkerloop/security/advisories/new) if appropriate.

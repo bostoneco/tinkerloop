@@ -1,19 +1,20 @@
 # Security Policy
 
-Tinkerloop is currently private and in `alpha`-prep status.
+Tinkerloop is in **alpha**; security reporting is taken seriously.
 
-## Reporting A Vulnerability
+## Reporting a vulnerability
 
-Do not open a public issue for a suspected vulnerability.
+**Do not open a public issue** for a suspected vulnerability.
 
-While the project is private:
+Report security concerns privately:
 
-- report security concerns through the maintainers' existing internal channels
-- include reproduction steps, impact, and any relevant logs or artifacts
-- state whether the issue affects example targets, the core engine, or adapter boundaries
+- **Preferred:** [Open a private security advisory](https://github.com/bostoneco/tinkerloop/security/advisories/new) on GitHub.
+- Include reproduction steps, impact, and any relevant logs or artifacts.
+- State whether the issue affects example targets, the core engine, or adapter boundaries.
 
-Once the project becomes public, this policy should be updated with the public
-security contact and supported release lines.
+## Supported release lines
+
+For the alpha release, the current main line is in scope. Security fixes will be documented in [CHANGELOG.md](CHANGELOG.md) and release notes.
 
 ## Security Direction
 

@@ -22,7 +22,7 @@ tinkerloop \
   --scenarios examples/starter_target/failure_scenarios
 ```
 
-Observed result in private alpha-prep verification:
+Example output from a verification run:
 
 ```text
 Scenarios: 1, passed: 0, failed: 1
