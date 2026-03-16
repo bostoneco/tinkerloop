@@ -1,8 +1,6 @@
 # Stability And Support
 
-Tinkerloop is being prepared for a first public `alpha` release.
-The repo is still private today, but this document defines the contract we are
-freezing for the initial `v0.x` line.
+Tinkerloop is in its first public **alpha** release. This document defines the contract for the initial `v0.x` line.
 
 ## Supported In `v0.x`
 

@@ -67,7 +67,7 @@ In uncertain cases, fix adapter/runtime fidelity first.
 
 ## Smoke Reproducibility Note
 
-Private alpha-prep smoke runs on March 14, 2026 used the bundled demo target,
+Alpha smoke runs on March 14, 2026 used the bundled demo target,
 the same scenario directory, and the same fixed example runtime
 (`provider=example`, `model=demo-app`).
 

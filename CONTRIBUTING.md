@@ -1,8 +1,6 @@
 # Contributing
 
-Tinkerloop is currently being prepared for its first public `alpha` release.
-The repo remains private for now, but this guide is the contribution standard
-that will ship with the project.
+Contributions are welcome. This guide describes the project’s contribution standard.
 
 ## Scope
 
@@ -21,9 +19,11 @@ Contributions should preserve the core project boundaries:
 
 ## Local Setup
 
+Use **Python 3.12** (e.g. `python3.12 -m venv .venv`, then activate and):
+
 ```bash
-python -m pip install -e .[dev]
-python -m pytest -q
+pip install -e .[dev]
+pytest -q
 ```
 
 ## Change Standard
@@ -37,13 +37,11 @@ python -m pytest -q
 
 Before opening a PR:
 
-- run `python -m pytest -q`
+- run `pytest -q`
 - run `python -m build --wheel`
 - verify the starter target quickstart still works
 - describe user-facing behavior changes and any stable-surface impact
 
 ## Release Policy
 
-Until the project is public, contributions are by invitation.
-This file is still maintained now so the public release can happen without a
-separate docs scramble.
+Releases are cut by the maintainers. See [CHANGELOG.md](CHANGELOG.md) for version history.

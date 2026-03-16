@@ -4,15 +4,12 @@ Tinkerloop is an eval-driven harness for testing and improving orchestrator-base
 
 ## Release Status
 
-Tinkerloop is currently private and being prepared for a first public `alpha`
-release.
+Tinkerloop is in its first public **alpha** release.
 
-What that means today:
-
-- the package, CLI, adapters, and report artifacts are usable now
-- the supported `v0.x` surface is documented in [`docs/STABILITY.md`](docs/STABILITY.md)
-- the project is intended for technically strong early adopters who can own a target adapter
-- the project is not yet positioned as a benchmark suite or production-assurance layer
+- The package, CLI, adapters, and report artifacts are usable now.
+- The supported `v0.x` surface is documented in [`docs/STABILITY.md`](docs/STABILITY.md).
+- The project is intended for technically strong early adopters who can own a target adapter.
+- It is not yet positioned as a benchmark suite or production-assurance layer.
 
 ## What It Is
 
@@ -63,10 +60,12 @@ Not in scope yet:
 
 ## Quick Start
 
+Tinkerloop requires **Python 3.12+**. Use a 3.12 interpreter or create a virtual environment with one (e.g. `python3.12 -m venv .venv` then `.venv/bin/pip install ...`).
+
 Install from a GitHub release wheel:
 
 ```bash
-python -m pip install https://github.com/bostoneco/tinkerloop/releases/download/<tag>/tinkerloop-<version>-py3-none-any.whl
+python3.12 -m pip install https://github.com/bostoneco/tinkerloop/releases/download/<tag>/tinkerloop-<version>-py3-none-any.whl
 ```
 
 Then run it against a target-owned adapter and scenario directory:
@@ -79,11 +78,11 @@ tinkerloop \
   --scenarios /path/to/scenarios
 ```
 
-For local development from a source checkout, install editable mode and use the in-repo demo target:
+For local development from a source checkout (Python 3.12 required):
 
 ```bash
-python -m pip install -e .[dev]
-python -m pytest -q
+python3.12 -m pip install -e .[dev]
+python3.12 -m pytest -q
 tinkerloop \
   run \
   --adapter examples/starter_target/adapter.py:create_adapter \
