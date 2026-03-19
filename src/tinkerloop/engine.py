@@ -41,9 +41,14 @@ def load_scenarios(path: str | Path) -> list[Scenario]:
     if not files:
         raise FileNotFoundError(f"No scenario files found in {path}")
     scenarios: list[Scenario] = []
+    seen_scenario_ids: set[str] = set()
     for file_path in files:
         with open(file_path, encoding="utf-8") as f:
             payload = json.load(f)
+        scenario_id = str(payload["scenario_id"])
+        if scenario_id in seen_scenario_ids:
+            raise ValueError(f"Duplicate scenario_id found: {scenario_id}")
+        seen_scenario_ids.add(scenario_id)
         turns = [
             ScenarioTurn(
                 user=str(turn["user"]),
@@ -53,8 +58,8 @@ def load_scenarios(path: str | Path) -> list[Scenario]:
         ]
         scenarios.append(
             Scenario(
-                scenario_id=str(payload["scenario_id"]),
-                description=str(payload.get("description") or payload["scenario_id"]),
+                scenario_id=scenario_id,
+                description=str(payload.get("description") or scenario_id),
                 turns=turns,
                 destructive=bool(payload.get("destructive", False)),
                 tags=list(payload.get("tags", [])),

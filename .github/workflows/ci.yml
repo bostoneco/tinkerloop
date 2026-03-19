@@ -29,3 +29,10 @@ jobs:
 
       - name: Build wheel
         run: python -m build --wheel
+
+      - name: Smoke test built wheel
+        run: |
+          python -m venv /tmp/tinkerloop-smoke
+          source /tmp/tinkerloop-smoke/bin/activate
+          pip install dist/*.whl
+          tinkerloop --version

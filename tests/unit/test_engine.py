@@ -148,6 +148,34 @@ def test_load_scenarios_fails_for_missing_path(tmp_path):
         load_scenarios(tmp_path / "missing")
 
 
+def test_load_scenarios_rejects_duplicate_scenario_ids(tmp_path):
+    first = tmp_path / "a.json"
+    first.write_text(
+        json.dumps(
+            {
+                "scenario_id": "cleanup_preview_first_unit",
+                "turns": [{"user": "Preview"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    second = tmp_path / "b.json"
+    second.write_text(
+        json.dumps(
+            {
+                "scenario_id": "cleanup_preview_first_unit",
+                "turns": [{"user": "Preview again"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError) as exc:
+        load_scenarios(tmp_path)
+
+    assert "Duplicate scenario_id found" in str(exc.value)
+
+
 def test_select_scenarios_applies_filters():
     scenarios = [
         Scenario(
