@@ -4,7 +4,7 @@ This is the shortest path from zero to a working target-owned integration.
 
 ## 1. Install Tinkerloop
 
-Tinkerloop requires **Python 3.12+**. Use a 3.12 interpreter (e.g. `python3.12 -m pip` or an activated venv created with 3.12).
+Tinkerloop requires **Python 3.12+**. If you are working from a source checkout of this repo, use the pinned `3.12.9` from [`.python-version`](../.python-version).
 
 From a wheel release:
 
@@ -15,7 +15,11 @@ python3.12 -m pip install /path/to/tinkerloop-<version>-py3-none-any.whl
 For local development:
 
 ```bash
-python3.12 -m pip install -e /path/to/tinkerloop[dev]
+cd /path/to/tinkerloop
+pyenv local 3.12.9
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
 ## 2. Start From The Starter Target

@@ -1,6 +1,13 @@
 # Contributing
 
-Contributions are welcome. This guide describes the project’s contribution standard.
+## Who can contribute
+
+Pull requests are accepted only from **maintainers and invited contributors**. If you are not yet an invited contributor:
+
+- **Bug reports and feature ideas:** please open an [issue](https://github.com/bostoneco/tinkerloop/issues).
+- **Code changes:** open an issue first to discuss; the maintainers may invite you to contribute via PR.
+
+This keeps the contributor set limited and review manageable while the project is in alpha.
 
 ## Scope
 
@@ -19,10 +26,13 @@ Contributions should preserve the core project boundaries:
 
 ## Local Setup
 
-Use **Python 3.12** (e.g. `python3.12 -m venv .venv`, then activate and):
+This repo pins **Python 3.12.9** in [`.python-version`](.python-version). With `pyenv` installed:
 
 ```bash
-pip install -e .[dev]
+pyenv local 3.12.9
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 pytest -q
 ```
 
@@ -33,7 +43,7 @@ pytest -q
 - Update docs when CLI behavior, contract behavior, or report artifacts change.
 - Preserve schema version discipline for report artifacts.
 
-## Pull Requests
+## Pull Requests (invited contributors)
 
 Before opening a PR:
 
