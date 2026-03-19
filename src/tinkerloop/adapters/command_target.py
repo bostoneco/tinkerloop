@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 from typing import Callable
 
-from tinkerloop.adapters.base import AppAdapter, TraceRecorder
+from tinkerloop.adapters.base import AppAdapter, TraceCaptureError, TraceRecorder
 from tinkerloop.adapters.env_files import parse_env_file
 from tinkerloop.models import ToolTrace
 
@@ -26,15 +26,28 @@ class FileTraceRecorder(TraceRecorder):
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
+        error_message: str | None = None
         try:
             if self._trace_file and self._trace_file.is_file():
-                payload = json.loads(self._trace_file.read_text(encoding="utf-8"))
-                if isinstance(payload, list):
-                    self.calls = [ToolTrace(**item) for item in payload if isinstance(item, dict)]
+                raw_text = self._trace_file.read_text(encoding="utf-8").strip()
+                if not raw_text:
+                    error_message = f"Target command did not write a trace file: {self._trace_file}"
+                else:
+                    payload = json.loads(raw_text)
+                    if isinstance(payload, list):
+                        self.calls = [ToolTrace(**item) for item in payload if isinstance(item, dict)]
+                    else:
+                        error_message = f"Trace file must contain a JSON list: {self._trace_file}"
+            else:
+                error_message = f"Target command did not write a trace file: {self._trace_file}"
+        except Exception as exc:
+            error_message = f"Could not read trace file {self._trace_file}: {exc}"
         finally:
             self._adapter._active_trace_file = None
             if self._trace_file:
                 self._trace_file.unlink(missing_ok=True)
+        if error_message:
+            raise TraceCaptureError(error_message)
         return None
 
 

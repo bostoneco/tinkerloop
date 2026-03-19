@@ -319,13 +319,38 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 def _run_command(args: argparse.Namespace) -> int:
-
-    adapter = load_adapter(args.adapter)
-    preflight = adapter.preflight(user_id=str(args.user_id))
-    metadata = {
-        "adapter": adapter.run_metadata(),
-        "preflight": asdict(preflight),
+    metadata: dict[str, object] = {
+        "adapter_path": str(args.adapter),
     }
+    try:
+        adapter = load_adapter(args.adapter)
+    except Exception as exc:
+        return _write_error_report(
+            report_dir=args.report_dir,
+            metadata=metadata,
+            message=f"{type(exc).__name__}: {exc}",
+            metadata_key="adapter_error",
+        )
+
+    try:
+        adapter_metadata = {"adapter": type(adapter).__name__}
+        adapter_metadata.update(adapter.run_metadata())
+        metadata["adapter"] = adapter_metadata
+    except Exception as exc:
+        metadata["adapter"] = {"adapter": type(adapter).__name__}
+        metadata["adapter_metadata_error"] = f"{type(exc).__name__}: {exc}"
+
+    try:
+        preflight = adapter.preflight(user_id=str(args.user_id))
+    except Exception as exc:
+        return _write_error_report(
+            report_dir=args.report_dir,
+            metadata=metadata,
+            message=f"{type(exc).__name__}: {exc}",
+            metadata_key="preflight_error",
+        )
+
+    metadata["preflight"] = asdict(preflight)
     if not preflight.ready:
         return _write_error_report(
             report_dir=args.report_dir,
@@ -340,11 +365,11 @@ def _run_command(args: argparse.Namespace) -> int:
             inner_provider=str(args.inner_provider),
             inner_model=str(args.inner_model),
         )
-    except RuntimeError as exc:
+    except Exception as exc:
         return _write_error_report(
             report_dir=args.report_dir,
             metadata=metadata,
-            message=str(exc),
+            message=f"{type(exc).__name__}: {exc}",
             metadata_key="runtime_error",
         )
 
