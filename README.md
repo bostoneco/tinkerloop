@@ -60,7 +60,7 @@ Not in scope yet:
 
 ## Quick Start
 
-Tinkerloop requires **Python 3.12+**. Use a 3.12 interpreter or create a virtual environment with one (e.g. `python3.12 -m venv .venv` then `.venv/bin/pip install ...`).
+Tinkerloop requires **Python 3.12+**. This repo pins `3.12.9` in [`.python-version`](.python-version) for `pyenv`.
 
 Install from a GitHub release wheel:
 
@@ -78,11 +78,14 @@ tinkerloop \
   --scenarios /path/to/scenarios
 ```
 
-For local development from a source checkout (Python 3.12 required):
+For local development from a source checkout:
 
 ```bash
-python3.12 -m pip install -e .[dev]
-python3.12 -m pytest -q
+pyenv local 3.12.9
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+pytest -q
 tinkerloop \
   run \
   --adapter examples/starter_target/adapter.py:create_adapter \
@@ -174,3 +177,11 @@ Artifacts written on each run:
 - no silent magic around tracing, patching, or scenario selection
 - no automatic production actions
 - future target-driver integrations must be non-prod only and secure by default
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE). Business-friendly: use, modify, and distribute with minimal conditions; includes a patent grant.
+
+## Contributing
+
+PRs are accepted from maintainers and invited contributors only. For bugs or ideas, open an [issue](https://github.com/bostoneco/tinkerloop/issues). See [CONTRIBUTING.md](CONTRIBUTING.md).
