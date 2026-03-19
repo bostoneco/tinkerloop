@@ -48,6 +48,7 @@ packages = ["src/tinkerloop"]
 [tool.hatch.build.targets.sdist]
 include = [
     "/README.md",
+    "/LICENSE",
     "/pyproject.toml",
     "/src/tinkerloop",
 ]

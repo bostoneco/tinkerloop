@@ -7,6 +7,10 @@ from typing import Any
 from tinkerloop.models import PreflightResult, RuntimeSpec, ToolTrace
 
 
+class TraceCaptureError(RuntimeError):
+    pass
+
+
 class TraceRecorder(AbstractContextManager["TraceRecorder"]):
     def __init__(self) -> None:
         self.calls: list[ToolTrace] = []

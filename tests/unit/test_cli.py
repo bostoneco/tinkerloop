@@ -206,6 +206,79 @@ def create_adapter():
     assert type(adapter).__name__ == "ImportAdapter"
 
 
+def test_main_writes_error_report_when_adapter_load_fails(monkeypatch, tmp_path, capsys):
+    captured = {}
+
+    def fail_load_adapter(_factory_path):
+        raise ValueError("broken adapter")
+
+    monkeypatch.setattr("tinkerloop.cli.load_adapter", fail_load_adapter)
+    monkeypatch.setattr(
+        "tinkerloop.cli.write_report",
+        lambda results, *, output_dir, metadata=None: captured.update(
+            {"results": results, "output_dir": output_dir, "metadata": metadata}
+        )
+        or Path(output_dir) / "latest.json",
+    )
+
+    exit_code = main(
+        [
+            "run",
+            "--adapter",
+            "tests.fixtures.sample_adapter:create_adapter",
+            "--user-id",
+            "u1",
+            "--scenarios",
+            str(tmp_path),
+            "--report-dir",
+            str(tmp_path),
+        ]
+    )
+
+    assert exit_code == 2
+    assert "ValueError: broken adapter" in capsys.readouterr().err
+    assert captured["results"] == []
+    assert captured["metadata"]["adapter_path"] == "tests.fixtures.sample_adapter:create_adapter"
+    assert captured["metadata"]["adapter_error"] == "ValueError: broken adapter"
+
+
+def test_main_writes_error_report_when_preflight_fails(monkeypatch, tmp_path, capsys):
+    class BrokenPreflightAdapter(DummyAdapter):
+        def preflight(self, *, user_id: str) -> PreflightResult:
+            raise RuntimeError("preflight boom")
+
+    captured = {}
+    adapter = BrokenPreflightAdapter()
+    monkeypatch.setattr("tinkerloop.cli.load_adapter", lambda _factory_path: adapter)
+    monkeypatch.setattr(
+        "tinkerloop.cli.write_report",
+        lambda results, *, output_dir, metadata=None: captured.update(
+            {"results": results, "output_dir": output_dir, "metadata": metadata}
+        )
+        or Path(output_dir) / "latest.json",
+    )
+
+    exit_code = main(
+        [
+            "run",
+            "--adapter",
+            "tests.fixtures.sample_adapter:create_adapter",
+            "--user-id",
+            "u1",
+            "--scenarios",
+            str(tmp_path),
+            "--report-dir",
+            str(tmp_path),
+        ]
+    )
+
+    assert exit_code == 2
+    assert "RuntimeError: preflight boom" in capsys.readouterr().err
+    assert captured["results"] == []
+    assert captured["metadata"]["adapter"]["adapter"] == type(adapter).__name__
+    assert captured["metadata"]["preflight_error"] == "RuntimeError: preflight boom"
+
+
 def test_main_uses_failed_from_to_filter_scenarios(monkeypatch, tmp_path):
     adapter = DummyAdapter(
         resolved=RuntimeSpec(

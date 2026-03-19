@@ -7,7 +7,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from tinkerloop.adapters.base import AppAdapter
+from tinkerloop.adapters.base import AppAdapter, TraceCaptureError
 from tinkerloop.models import (
     CheckResult,
     Scenario,
@@ -25,6 +25,12 @@ SUPPORTED_CHECK_TYPES = (
     "tool_call_count_at_most",
     "tool_call_matches",
 )
+
+TOOL_CHECK_TYPES = {
+    "tool_used",
+    "tool_call_count_at_most",
+    "tool_call_matches",
+}
 
 
 def load_scenarios(path: str | Path) -> list[Scenario]:
@@ -104,8 +110,10 @@ def run_scenario(scenario: Scenario, *, adapter: AppAdapter, user_id: str) -> Sc
     for index, turn in enumerate(scenario.turns, start=1):
         turn_started = time.time()
         correlation_id = f"eval-{scenario.scenario_id}-{index}-{uuid.uuid4().hex[:8]}"
-        tracer = adapter.trace_recorder()
+        tracer = None
+        assistant = ""
         try:
+            tracer = adapter.trace_recorder()
             with tracer:
                 assistant = adapter.send_user_turn(
                     user_id=user_id,
@@ -113,6 +121,18 @@ def run_scenario(scenario: Scenario, *, adapter: AppAdapter, user_id: str) -> Sc
                     correlation_id=correlation_id,
                 )
             checks = evaluate_checks(assistant=assistant, tool_traces=tracer.calls, checks=turn.checks)
+        except TraceCaptureError as exc:
+            assistant_checks = [
+                check for check in turn.checks if check.type not in TOOL_CHECK_TYPES
+            ]
+            checks = evaluate_checks(assistant=assistant, tool_traces=[], checks=assistant_checks)
+            checks.append(
+                CheckResult(
+                    check_type="trace_capture",
+                    passed=False,
+                    detail=str(exc),
+                )
+            )
         except Exception as exc:
             assistant = ""
             checks = [

@@ -3,6 +3,7 @@ import json
 import pytest
 
 from tinkerloop.adapters.base import AppAdapter, TraceRecorder
+from tinkerloop.adapters.command_target import CommandAppAdapter
 from tinkerloop.engine import (
     SUPPORTED_CHECK_TYPES,
     build_diagnosis_artifact,
@@ -207,6 +208,44 @@ def test_run_scenario_records_adapter_failure_as_failed_turn():
     assert result.passed is False
     assert result.turns[0].checks[0].check_type == "adapter_runtime"
     assert "boom" in result.turns[0].checks[0].detail
+
+
+def test_run_scenario_marks_missing_traces_as_trace_capture_failure(tmp_path):
+    script = tmp_path / "runner.py"
+    script.write_text(
+        """
+print("Preview ready")
+""".strip(),
+        encoding="utf-8",
+    )
+    adapter = CommandAppAdapter(
+        command_builder=lambda user_id, user_text, correlation_id: [
+            "python",
+            str(script),
+        ],
+        workdir=tmp_path,
+    )
+    scenario = Scenario(
+        scenario_id="cleanup_preview_first_unit",
+        description="demo",
+        turns=[
+            ScenarioTurn(
+                user="Preview the first cleanup unit",
+                checks=[
+                    ScenarioCheck(type="assistant_contains_all", values=["Preview ready"]),
+                    ScenarioCheck(type="tool_used", values=["cleanup"]),
+                ],
+            )
+        ],
+    )
+
+    result = run_scenario(scenario, adapter=adapter, user_id="u1")
+
+    assert result.passed is False
+    assert result.turns[0].assistant == "Preview ready"
+    assert result.turns[0].checks[-1].check_type == "trace_capture"
+    assert "did not write a trace file" in result.turns[0].checks[-1].detail
+    assert all(check.check_type != "tool_used" for check in result.turns[0].checks)
 
 
 def test_build_report_payload_collects_failures():
