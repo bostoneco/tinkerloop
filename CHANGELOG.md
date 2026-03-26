@@ -2,6 +2,12 @@
 
 All notable changes to Tinkerloop should be recorded here.
 
+## 0.1.1
+
+### Changed
+
+- refreshed the README opener to be more product-facing
+
 ## Unreleased
 
 ### Added
