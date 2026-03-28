@@ -6,7 +6,7 @@ It is an eval-driven harness for testing and improving orchestrator-based apps t
 
 ## Release Status
 
-Tinkerloop is in its first public **alpha** release.
+Tinkerloop is in **alpha**.
 
 - The package, CLI, adapters, and report artifacts are usable now.
 - The supported `v0.x` surface is documented in [`docs/STABILITY.md`](docs/STABILITY.md).
@@ -104,6 +104,12 @@ tinkerloop \
 
 For real projects, the target repo should own its adapter and scenarios.
 `--adapter` accepts either an import path such as `your_project.tinkerloop_adapter:create_adapter` or a file path such as `/path/to/target_adapter.py:create_adapter`.
+
+For `PythonAppAdapter`, each `patch_targets` entry should point at a callable with
+the standard tool-call shape
+`(tool_name, user_id, arguments, correlation_id=None)`.
+Scenario files must contain at least one turn, and each turn must define a
+non-empty `user` prompt.
 
 If the adapter cannot resolve one inner model confidently, Tinkerloop will prompt for a repo-derived candidate in interactive mode. In non-interactive mode, pass explicit overrides:
 

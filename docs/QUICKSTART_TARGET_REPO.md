@@ -48,11 +48,15 @@ def create_adapter() -> PythonAppAdapter:
 ```
 
 If your target needs a runner command instead, use `CommandAppAdapter`.
+For `PythonAppAdapter`, the patched callable should use
+`(tool_name, user_id, arguments, correlation_id=None)`.
 
 ## 4. Add One Narrow Scenario
 
 Create one JSON file with one behavior family and deterministic checks.
 See [`examples/starter_target/scenarios/greet_user_by_name.json`](../examples/starter_target/scenarios/greet_user_by_name.json).
+Each scenario must contain at least one turn, and each turn must define a
+non-empty `user` prompt.
 
 ## 5. Run The Smallest Slice
 

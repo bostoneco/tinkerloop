@@ -84,16 +84,16 @@ class PythonAppAdapter(AppAdapter):
         self.patch_targets = list(patch_targets or [])
         self.repo_root = Path(repo_root).resolve() if repo_root else None
         self.env_files = [Path(item).resolve() for item in (env_files or [])]
-        self._prepared = False
+        self._context_prepared = False
         self._handler: Callable[..., str] | None = None
 
     def send_user_turn(self, *, user_id: str, user_text: str, correlation_id: str) -> str:
-        self._prepare()
+        self._prepare_handler()
         assert self._handler is not None
         return self._handler(user_id=user_id, user_text=user_text, correlation_id=correlation_id)
 
     def trace_recorder(self) -> TraceRecorder:
-        self._prepare()
+        self._prepare_context()
         return ToolPatchRecorder(self.patch_targets)
 
     def run_metadata(self) -> dict[str, Any]:
@@ -101,10 +101,12 @@ class PythonAppAdapter(AppAdapter):
             "adapter": type(self).__name__,
             "handler_path": self.handler_path,
             "repo_root": str(self.repo_root) if self.repo_root else "",
+            "patch_targets": list(self.patch_targets),
+            "env_files": [str(path) for path in self.env_files],
         }
 
-    def _prepare(self) -> None:
-        if self._prepared:
+    def _prepare_context(self) -> None:
+        if self._context_prepared:
             return
         cwd = str(Path.cwd())
         if cwd not in sys.path:
@@ -113,8 +115,12 @@ class PythonAppAdapter(AppAdapter):
             sys.path.insert(0, str(self.repo_root))
         for env_file in self.env_files:
             load_env_file(env_file)
-        self._handler = self._resolve_callable(self.handler_path)
-        self._prepared = True
+        self._context_prepared = True
+
+    def _prepare_handler(self) -> None:
+        self._prepare_context()
+        if self._handler is None:
+            self._handler = self._resolve_callable(self.handler_path)
 
     @staticmethod
     def _resolve_callable(import_path: str) -> Callable[..., str]:

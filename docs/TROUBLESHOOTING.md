@@ -58,7 +58,7 @@ Symptoms:
 
 Checks:
 
-- for `PythonAppAdapter`, confirm `patch_targets` point at the real tool call site
+- for `PythonAppAdapter`, confirm `patch_targets` point at the real tool call site and that the patched callable uses `(tool_name, user_id, arguments, correlation_id=None)`
 - for `CommandAppAdapter`, confirm the target command writes `TINKERLOOP_TRACE_FILE`
 - prefer tracing the real execution path instead of a wrapper function
 

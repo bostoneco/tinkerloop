@@ -78,3 +78,23 @@ print(json.dumps({"value": os.environ.get("VALUE"), "keep": os.environ.get("KEEP
     payload = json.loads(assistant)
 
     assert payload == {"value": "override", "keep": "1"}
+
+
+def test_command_adapter_run_metadata_includes_env_context(tmp_path: Path):
+    env_file = tmp_path / ".env"
+    env_file.write_text("VALUE=from_env\n", encoding="utf-8")
+
+    adapter = CommandAppAdapter(
+        command_builder=lambda user_id, user_text, correlation_id: ["python", "-c", "print('ok')"],
+        workdir=tmp_path,
+        env_files=[env_file],
+        env_overrides={"VALUE": "override", "KEEP": "1"},
+        timeout_seconds=30,
+    )
+
+    metadata = adapter.run_metadata()
+
+    assert metadata["workdir"] == str(tmp_path.resolve())
+    assert metadata["timeout_seconds"] == 30
+    assert metadata["env_files"] == [str(env_file.resolve())]
+    assert metadata["env_override_keys"] == ["KEEP", "VALUE"]

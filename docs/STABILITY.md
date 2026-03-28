@@ -1,6 +1,6 @@
 # Stability And Support
 
-Tinkerloop is in its first public **alpha** release. This document defines the contract for the initial `v0.x` line.
+Tinkerloop is in **alpha**. This document defines the contract for the initial `v0.x` line.
 
 ## Supported In `v0.x`
 
@@ -44,6 +44,6 @@ Tinkerloop is in its first public **alpha** release. This document defines the c
 
 ## Support Position
 
-For the first public `alpha`, Tinkerloop is intended for technically strong
+For the current `alpha`, Tinkerloop is intended for technically strong
 early adopters who can own their target adapter and scenario library.
 It is not yet positioned as a broadly supported evaluation platform.
