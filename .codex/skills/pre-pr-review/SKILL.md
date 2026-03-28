@@ -1,137 +1,131 @@
-# Pre-PR Review (Local) — Copilot PR Reviewer Skill
+# Pre-PR Review (Local)
 
 ## Goal
-Perform a proactive “pre-PR” review on the local checkout before I open a PR.
+Perform a proactive review of the current local checkout before opening a PR.
 
-You are acting as **GitHub Copilot PR Reviewer**. Treat this as production-bound code: prioritize **safety, observability, and rollback**. If you see a likely bug, propose a **minimal patch diff snippet**.
+Treat this as production-bound code. Prioritize:
 
----
+- correctness
+- regression risk
+- observability and diagnostics
+- rollback safety
+- doc/code/test alignment
 
-## Capabilities / Assumptions
-- You have access to my local repo checkout and can run shell/git commands yourself.
-- If something fails (missing tools/permissions), report:
-  - the exact command you tried
-  - the error/output
-  - what you need from me to proceed
-
----
+This is a review workflow, not an editing workflow.
+Do not change code unless the user explicitly asks for fixes.
 
 ## Scope
-- Review ONLY my current working tree changes and any new/modified files.
-- Inspect nearby/related code (callers, imports, shared utilities, config) only as needed to evaluate the change safely.
-- Keep focus on the diff.
 
----
+- Review only the current working tree changes and newly added files.
+- Inspect nearby callers, shared utilities, config, docs, and tests only as needed to evaluate the diff safely.
+- Keep the focus on bugs, risky assumptions, duplicated logic, stale tests, abandoned code paths, and release-surface drift.
 
-## Auto-collect Context (run these yourself)
-1. **Detect repo root** and current branch.
-2. **Determine base branch** for the future PR:
-   - Prefer `origin/HEAD` / default branch if available.
-   - If ambiguous, infer best base (e.g., `main` vs `master`) and explicitly state what you chose and why.
-3. **Collect change information** (capture outputs):
-   - `git status`
-   - `git diff`
+## Repo-Specific Expectations
+
+For this repo, always check:
+
+- docs match current code and CLI behavior
+- unit tests are still current and not asserting obsolete behavior
+- release/build flows still work when packaging or CLI/docs change
+- no emoji, AI giveaway phrasing, or sloppy compatibility leftovers appear in code/comments/loggers/docs
+
+## Auto-Collect Context
+
+Run these yourself:
+
+1. Detect repo root and current branch.
+2. Determine the likely base branch.
+   - Prefer `origin/HEAD`.
+   - If ambiguous, infer the best base and state the choice.
+3. Collect diff context.
+   - `git status --short`
    - `git diff --stat`
    - `git diff --name-only`
-   - `git diff origin/<base-branch>...HEAD` (or equivalent once base is determined)
-
----
+   - `git diff`
+   - `git diff origin/<base-branch>...HEAD`
+4. If `HEAD` already matches the base branch and the review is only about uncommitted working-tree changes, say that explicitly.
 
 ## Review Checklist
-### 1) Summary
-- Summarize what the diff does in **1–5 bullets**.
 
-### 2) Risk Assessment
-Call out high-risk areas, including:
-- behavior changes / breaking changes
-- migrations / schema changes
-- concurrency / locking / races
-- data loss / destructive operations
-- backward compatibility
-- API/contract changes
+### 1) Correctness
 
-### 3) Correctness
 Look for:
+
 - logic bugs
-- edge cases (null/empty, boundary values)
-- error-handling gaps
-- off-by-one issues
-- resource leaks (files, connections, goroutines/threads, handles)
-- assumptions that no longer hold
+- broken or misleading error handling
+- wrong failure classification
+- empty/null/boundary cases
+- broken cleanup/finalization paths
+- assumptions that the diff invalidates
 
-### 4) Security
-Check for:
-- secrets exposure
-- authn/authz mistakes
-- injection vectors (SQL/command/path/template)
-- unsafe deserialization
-- insecure randomness
-- SSRF
-- overly-broad permissions
-- input validation and trust boundary violations
+### 2) Risk
 
-### 5) Performance & Reliability
-Assess:
-- algorithmic regressions (Big-O)
-- accidental N+1 calls
-- unnecessary allocations / copies
-- missing caching where appropriate
-- blocking calls, timeouts, retries, backoff
-- logging/metrics for failure modes
-- resilience under partial outages
+Call out:
 
-### 6) Testing Plan
-- Identify missing tests; propose specific **unit/integration/e2e** tests.
-- If tests exist, evaluate whether they assert the intended behavior and cover edge cases.
-- Run relevant local checks based on repo conventions:
-  - unit tests
-  - linters/formatters
-  - type checks
-  - build/compile steps
-  - security scans (if configured)
-- If standard commands aren’t obvious, discover them by inspecting:
-  - `README*`
-  - `CONTRIBUTING*`
-  - `Makefile`
-  - package/build scripts and config (language-dependent)
-  - CI workflows
-Then propose and run the best match.
+- behavior or contract changes
+- API or CLI changes
+- packaging/release changes
+- destructive or data-loss risk
+- rollout or rollback concerns
 
-### 7) Maintainability & Style
+### 3) Testing And Verification
+
+- Identify missing tests and stale tests.
+- Check whether current tests actually cover the risky edge cases in the diff.
+- Run the best local checks for the repo. Prefer:
+  - `pytest -q`
+  - `ruff check .`
+  - `python -m build --wheel --sdist --no-isolation`
+- If packaging, install, or CLI behavior changed, run an installed-wheel smoke test when practical.
+- If a reproduced edge case is not covered by tests, call that out explicitly even if the suite passes.
+
+### 4) Docs And Operability
+
+Check:
+
+- README and docs against actual behavior
+- troubleshooting guidance against actual failure modes
+- release checklist vs CI/workflow enforcement
+- whether the diff makes diagnosis easier or harder for operators
+
+### 5) Maintainability And Style
+
 Review:
+
+- duplication
+- dead or abandoned code
+- unnecessary compatibility layers
 - naming and structure
-- duplication and coupling
-- config defaults
-- feature flags
-- comments/docs
-- backwards compatibility and rollout/operability notes (if relevant)
+- comments and user-facing wording
 
-### 8) Actionable Output Requirements
-- Provide a prioritized list:
-  - **P0 must-fix**
-  - **P1 should-fix**
-  - **P2 nice-to-have**
-- For each item include:
-  - file path
-  - what to change
-  - why it matters
-- When helpful, include small code suggestions or refactor sketches.
-- For suggested patches, keep changes minimal and show only relevant lines.
+## Output Requirements
 
----
+Reviews must be findings-first.
+Prioritize bugs, regressions, misleading semantics, and missing tests before summaries.
+
+For each finding include:
+
+- priority: `P0`, `P1`, or `P2`
+- file path
+- what is wrong
+- why it matters
+
+When helpful, include a minimal patch sketch, but do not dump large rewrites.
+
+If you find no issues, say that explicitly and still mention residual risks or coverage gaps.
 
 ## Output Format
-1. Brief summary + **risk level**
-2. Prioritized checklist (**P0/P1/P2**)
-3. Commands you ran (or attempted) + key results (test failures, lint output, etc.)
-4. “Merge readiness” recommendation
-5. Rollback/mitigation notes (if needed)
-6. Remaining questions for the author/reviewer
 
----
+1. Findings (`P0` / `P1` / `P2`) ordered by severity
+2. Open questions or assumptions
+3. Brief summary + risk level
+4. Commands run + key results
+5. Merge readiness recommendation
+6. Rollback or mitigation notes
 
-## Start Now
-- Determine base branch
-- Gather diffs
-- Run the appropriate checks
-- Deliver the review in the required output format
+## Start
+
+- Determine the base branch
+- Gather the working-tree diff
+- Run the repo-appropriate checks
+- Deliver a findings-first review

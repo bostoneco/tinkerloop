@@ -36,3 +36,13 @@ jobs:
           source /tmp/tinkerloop-smoke/bin/activate
           pip install dist/*.whl
           tinkerloop --version
+          tinkerloop run \
+            --adapter examples/starter_target/adapter.py:create_adapter \
+            --user-id demo-user \
+            --scenarios examples/starter_target/scenarios \
+            --report-dir /tmp/tinkerloop-starter-artifacts
+          tinkerloop run \
+            --adapter examples/demo_app/adapter.py:create_adapter \
+            --user-id demo-user \
+            --scenarios examples/demo_app/scenarios \
+            --report-dir /tmp/tinkerloop-demo-artifacts

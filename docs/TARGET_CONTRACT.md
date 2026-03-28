@@ -20,7 +20,7 @@ Supported now:
 - local execution through `PythonAppAdapter` and `CommandAppAdapter`
 - deterministic scenario checks and JSON report artifacts
 
-Not part of the first public `alpha` contract:
+Not part of the current `alpha` contract:
 
 - the future remote-driver contract
 - arbitrary remote execution surfaces
@@ -45,6 +45,9 @@ Responsibilities:
 - capture tool traces from the real execution path
 - provide enough metadata to explain what environment was exercised
 
+`run_metadata()` is empty on the base `AppAdapter`.
+Target-owned adapters should override it with useful local execution context.
+
 ## Target-Owned Responsibility
 
 Target-specific code belongs in the target repo, not in Tinkerloop.
@@ -63,6 +66,10 @@ Tinkerloop currently supports two local integration shapes:
 
 - Python callable target through `PythonAppAdapter`
 - target-owned runner command through `CommandAppAdapter`
+
+For `PythonAppAdapter`, each `patch_targets` entry should point at a callable
+with the standard tool-call shape
+`(tool_name, user_id, arguments, correlation_id=None)`.
 
 The target app can be written in any language as long as it exposes one of these boundaries or a future driver contract.
 
@@ -91,4 +98,4 @@ Tinkerloop should be presented as:
 - a reusable outer-loop harness for orchestrator and MCP-style apps
 
 It should not require target apps to be Python.
-That remote contract is future work, not part of the first public `alpha`.
+That remote contract is future work, not part of the current `alpha`.

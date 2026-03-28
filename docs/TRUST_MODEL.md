@@ -13,7 +13,7 @@ A passing run means:
 - the target completed the scenario turns
 - the configured deterministic checks passed
 - the observed tool path matched what the checks required
-- the run metadata recorded the target context used for that execution
+- the adapter reported whatever run metadata it implements for that execution
 
 ## What A Passing Run Does Not Mean
 
@@ -37,6 +37,10 @@ Each check is intentionally narrow.
 If a behavior matters, encode it explicitly in scenarios rather than inferring
 it from a broad pass/fail label.
 
+Scenario files are validated before execution.
+Unsupported check types, empty turn sets, and empty `user` prompts are definition
+errors, not target-runtime failures.
+
 ## When Results Are Comparable
 
 Treat two runs as comparable only when all of these are held constant:
@@ -48,6 +52,8 @@ Treat two runs as comparable only when all of these are held constant:
 - selected runtime provider/model
 
 If any of those change, treat the runs as different experimental conditions.
+If `run_metadata()` does not record enough context to confirm that, treat the
+comparison as weak evidence.
 
 ## Actionable Failure vs Uncertain Failure
 

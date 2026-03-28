@@ -14,8 +14,10 @@ class TraceCaptureError(RuntimeError):
 class TraceRecorder(AbstractContextManager["TraceRecorder"]):
     def __init__(self) -> None:
         self.calls: list[ToolTrace] = []
+        self.capture_error: str | None = None
 
     def __enter__(self) -> "TraceRecorder":
+        self.capture_error = None
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:

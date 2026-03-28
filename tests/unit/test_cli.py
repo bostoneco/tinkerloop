@@ -8,7 +8,8 @@ import pytest
 from tinkerloop.__about__ import __version__
 from tinkerloop.adapters.base import AppAdapter
 from tinkerloop.cli import load_adapter, main, resolve_runtime_selection
-from tinkerloop.models import PreflightResult, RuntimeSpec, Scenario, ScenarioTurn
+from tinkerloop.engine import ScenarioDefinitionError
+from tinkerloop.models import PreflightResult, RuntimeSpec, Scenario, ScenarioResult, ScenarioTurn
 
 
 class DummyAdapter(AppAdapter):
@@ -279,6 +280,54 @@ def test_main_writes_error_report_when_preflight_fails(monkeypatch, tmp_path, ca
     assert captured["metadata"]["preflight_error"] == "RuntimeError: preflight boom"
 
 
+def test_main_writes_error_report_when_scenario_definition_is_invalid(
+    monkeypatch, tmp_path, capsys
+):
+    adapter = DummyAdapter(
+        resolved=RuntimeSpec(
+            provider="bedrock",
+            model="us.amazon.nova-pro-v1:0",
+            source="target_repo_defaults",
+            confidence="high",
+            reason="Resolved.",
+        )
+    )
+    captured = {}
+    monkeypatch.setattr("tinkerloop.cli.load_adapter", lambda _factory_path: adapter)
+    monkeypatch.setattr(
+        "tinkerloop.cli.load_scenarios",
+        lambda _path: (_ for _ in ()).throw(
+            ScenarioDefinitionError("Scenario `cleanup` must define at least one turn.")
+        ),
+    )
+    monkeypatch.setattr(
+        "tinkerloop.cli.write_report",
+        lambda results, *, output_dir, metadata=None: captured.update(
+            {"results": results, "output_dir": output_dir, "metadata": metadata}
+        )
+        or Path(output_dir) / "latest.json",
+    )
+
+    exit_code = main(
+        [
+            "run",
+            "--adapter",
+            "tests.fixtures.sample_adapter:create_adapter",
+            "--user-id",
+            "u1",
+            "--scenarios",
+            str(tmp_path),
+            "--report-dir",
+            str(tmp_path),
+        ]
+    )
+
+    assert exit_code == 2
+    assert "must define at least one turn" in capsys.readouterr().err
+    assert captured["results"] == []
+    assert captured["metadata"]["scenario_error"] == "Scenario `cleanup` must define at least one turn."
+
+
 def test_main_uses_failed_from_to_filter_scenarios(monkeypatch, tmp_path):
     adapter = DummyAdapter(
         resolved=RuntimeSpec(
@@ -301,7 +350,12 @@ def test_main_uses_failed_from_to_filter_scenarios(monkeypatch, tmp_path):
                 scenario_id="cleanup_preview_first_unit",
                 description="demo",
                 turns=[ScenarioTurn(user="Preview the first cleanup unit")],
-            )
+            ),
+            Scenario(
+                scenario_id="spam_review",
+                description="demo",
+                turns=[ScenarioTurn(user="Review the mailbox")],
+            ),
         ],
     )
     monkeypatch.setattr(
@@ -309,11 +363,20 @@ def test_main_uses_failed_from_to_filter_scenarios(monkeypatch, tmp_path):
         lambda _path: ["cleanup_preview_first_unit"],
     )
     monkeypatch.setattr(
-        "tinkerloop.cli.run_scenarios",
-        lambda scenarios, *, adapter, user_id, allow_destructive, scenario_filter, tag_filter: captured.update(
-            {"scenario_filter": scenario_filter, "tag_filter": tag_filter}
+        "tinkerloop.cli.run_scenario",
+        lambda scenario, *, adapter, user_id: captured.setdefault("scenario_ids", []).append(
+            scenario.scenario_id
         )
-        or [],
+        or ScenarioResult(
+            scenario_id=scenario.scenario_id,
+            description=scenario.description,
+            destructive=scenario.destructive,
+            user_id=user_id,
+            started_at=0,
+            duration_ms=0,
+            passed=True,
+            turns=[],
+        ),
     )
     monkeypatch.setattr(
         "tinkerloop.cli.write_report",
@@ -336,8 +399,7 @@ def test_main_uses_failed_from_to_filter_scenarios(monkeypatch, tmp_path):
     )
 
     assert exit_code == 0
-    assert captured["scenario_filter"] == {"cleanup_preview_first_unit"}
-    assert captured["tag_filter"] is None
+    assert captured["scenario_ids"] == ["cleanup_preview_first_unit"]
 
 
 def test_main_passes_tag_filter(monkeypatch, tmp_path):
@@ -364,9 +426,19 @@ def test_main_passes_tag_filter(monkeypatch, tmp_path):
         ],
     )
     monkeypatch.setattr(
-        "tinkerloop.cli.run_scenarios",
-        lambda scenarios, *, adapter, user_id, allow_destructive, scenario_filter, tag_filter: (
-            captured.update({"tag_filter": tag_filter}) or []
+        "tinkerloop.cli.run_scenario",
+        lambda scenario, *, adapter, user_id: captured.setdefault("scenario_ids", []).append(
+            scenario.scenario_id
+        )
+        or ScenarioResult(
+            scenario_id=scenario.scenario_id,
+            description=scenario.description,
+            destructive=scenario.destructive,
+            user_id=user_id,
+            started_at=0,
+            duration_ms=0,
+            passed=True,
+            turns=[],
         ),
     )
     monkeypatch.setattr(
@@ -392,7 +464,7 @@ def test_main_passes_tag_filter(monkeypatch, tmp_path):
     )
 
     assert exit_code == 0
-    assert captured["tag_filter"] == {"cleanup", "preview"}
+    assert captured["scenario_ids"] == ["cleanup_preview_first_unit"]
 
 
 def test_main_accepts_run_subcommand(monkeypatch, tmp_path):
@@ -418,9 +490,19 @@ def test_main_accepts_run_subcommand(monkeypatch, tmp_path):
         ],
     )
     monkeypatch.setattr(
-        "tinkerloop.cli.run_scenarios",
-        lambda scenarios, *, adapter, user_id, allow_destructive, scenario_filter, tag_filter: (
-            captured.update({"user_id": user_id, "scenario_filter": scenario_filter}) or []
+        "tinkerloop.cli.run_scenario",
+        lambda scenario, *, adapter, user_id: captured.update(
+            {"user_id": user_id, "scenario_id": scenario.scenario_id}
+        )
+        or ScenarioResult(
+            scenario_id=scenario.scenario_id,
+            description=scenario.description,
+            destructive=scenario.destructive,
+            user_id=user_id,
+            started_at=0,
+            duration_ms=0,
+            passed=True,
+            turns=[],
         ),
     )
     monkeypatch.setattr(
@@ -444,7 +526,7 @@ def test_main_accepts_run_subcommand(monkeypatch, tmp_path):
 
     assert exit_code == 0
     assert captured["user_id"] == "u1"
-    assert captured["scenario_filter"] is None
+    assert captured["scenario_id"] == "cleanup_preview_first_unit"
 
 
 def test_main_fails_when_no_scenarios_loaded(monkeypatch, tmp_path, capsys):

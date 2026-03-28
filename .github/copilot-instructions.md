@@ -17,7 +17,10 @@ Tinkerloop is a small eval-driven harness. Keep the core generic and keep target
 - Use `tinkerloop-runner` for execution, reruns, and artifact triage.
 - Use `tinkerloop-integration` for target adapters, wrapper scripts, and target-owned setup.
 - Use `tinkerloop-scenarios` for scenario JSON and deterministic checks.
-- Use `pre-pr-review` for review-oriented passes.
+- Use `pre-pr-review` for diff-scoped review passes.
+  - Keep reviews findings-first.
+  - Focus on bugs, regressions, stale tests, duplicated logic, and doc/code drift.
+  - In review mode, do not edit code unless the user explicitly asks for fixes.
 
 ## Working Rules
 
@@ -26,6 +29,7 @@ Tinkerloop is a small eval-driven harness. Keep the core generic and keep target
 - Keep report schema and CLI behavior aligned with docs.
 - Do not move target-specific behavior into the Tinkerloop core.
 - When a change affects the target repo contract, update the docs that describe the contract.
+- When packaging, install, or CLI behavior changes, verify the installed-wheel path when practical.
 
 ## Implementation Style
 

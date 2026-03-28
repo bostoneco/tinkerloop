@@ -2,18 +2,19 @@
 
 All notable changes to Tinkerloop should be recorded here.
 
+## Unreleased
+
+## 0.1.2
+
+### Changed
+
+- hardened scenario execution failure handling so target failures and trace-capture failures are classified separately
+- tightened scenario validation and removed duplicate CLI scenario execution paths
+- expanded installed-wheel smoke coverage in CI and aligned docs with the current adapter and trust model contract
+- refreshed the local pre-PR review skill and Copilot instructions to enforce findings-first review passes
+
 ## 0.1.1
 
 ### Changed
 
 - refreshed the README opener to be more product-facing
-
-## Unreleased
-
-### Added
-
-- wheel-install packaging and CLI version support
-- starter target example for target-owned onboarding
-- alpha-readiness docs for stability, trust model, quickstart, troubleshooting, and release checks
-- CI and release workflow scaffolding
-- contribution, conduct, security, and issue/PR templates

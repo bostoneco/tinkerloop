@@ -33,6 +33,10 @@ TOOL_CHECK_TYPES = {
 }
 
 
+class ScenarioDefinitionError(ValueError):
+    pass
+
+
 def load_scenarios(path: str | Path) -> list[Scenario]:
     path = Path(path)
     if not path.exists():
@@ -45,26 +49,12 @@ def load_scenarios(path: str | Path) -> list[Scenario]:
     for file_path in files:
         with open(file_path, encoding="utf-8") as f:
             payload = json.load(f)
-        scenario_id = str(payload["scenario_id"])
+        scenario = _parse_scenario_payload(payload, source=file_path)
+        scenario_id = scenario.scenario_id
         if scenario_id in seen_scenario_ids:
             raise ValueError(f"Duplicate scenario_id found: {scenario_id}")
         seen_scenario_ids.add(scenario_id)
-        turns = [
-            ScenarioTurn(
-                user=str(turn["user"]),
-                checks=[ScenarioCheck(**check) for check in turn.get("checks", [])],
-            )
-            for turn in payload.get("turns", [])
-        ]
-        scenarios.append(
-            Scenario(
-                scenario_id=scenario_id,
-                description=str(payload.get("description") or scenario_id),
-                turns=turns,
-                destructive=bool(payload.get("destructive", False)),
-                tags=list(payload.get("tags", [])),
-            )
-        )
+        scenarios.append(scenario)
     return scenarios
 
 
@@ -108,6 +98,7 @@ def run_scenarios(
 
 
 def run_scenario(scenario: Scenario, *, adapter: AppAdapter, user_id: str) -> ScenarioResult:
+    _validate_scenario(scenario)
     started = time.time()
     turns: list[TurnResult] = []
     all_passed = True
@@ -116,44 +107,67 @@ def run_scenario(scenario: Scenario, *, adapter: AppAdapter, user_id: str) -> Sc
         turn_started = time.time()
         correlation_id = f"eval-{scenario.scenario_id}-{index}-{uuid.uuid4().hex[:8]}"
         tracer = None
+        tool_traces: list[Any] = []
         assistant = ""
+        target_called = False
+        send_completed = False
         try:
             tracer = adapter.trace_recorder()
-            with tracer:
-                assistant = adapter.send_user_turn(
-                    user_id=user_id,
-                    user_text=turn.user,
-                    correlation_id=correlation_id,
-                )
-            checks = evaluate_checks(assistant=assistant, tool_traces=tracer.calls, checks=turn.checks)
-        except TraceCaptureError as exc:
-            assistant_checks = [
-                check for check in turn.checks if check.type not in TOOL_CHECK_TYPES
-            ]
-            checks = evaluate_checks(assistant=assistant, tool_traces=[], checks=assistant_checks)
-            checks.append(
-                CheckResult(
-                    check_type="trace_capture",
-                    passed=False,
-                    detail=str(exc),
-                )
-            )
         except Exception as exc:
-            assistant = ""
-            checks = [
-                CheckResult(
-                    check_type="adapter_runtime",
-                    passed=False,
-                    detail=f"{type(exc).__name__}: {exc}",
+            checks = _trace_capture_failure_checks(
+                turn,
+                assistant="",
+                detail=f"Could not initialize trace capture: {type(exc).__name__}: {exc}",
+                include_assistant_checks=False,
+            )
+        else:
+            try:
+                with tracer:
+                    target_called = True
+                    assistant = adapter.send_user_turn(
+                        user_id=user_id,
+                        user_text=turn.user,
+                        correlation_id=correlation_id,
+                    )
+                    send_completed = True
+            except TraceCaptureError as exc:
+                tool_traces = _safe_tool_traces(tracer)
+                checks = _trace_capture_failure_checks(
+                    turn,
+                    assistant=assistant,
+                    detail=str(exc),
+                    include_assistant_checks=send_completed,
                 )
-            ]
+            except Exception as exc:
+                tool_traces = _safe_tool_traces(tracer)
+                trace_error = _trace_capture_detail(tracer)
+                if not target_called:
+                    checks = _trace_capture_failure_checks(
+                        turn,
+                        assistant="",
+                        detail=f"Could not initialize trace capture: {type(exc).__name__}: {exc}",
+                        include_assistant_checks=False,
+                    )
+                elif send_completed:
+                    checks = _trace_capture_failure_checks(
+                        turn,
+                        assistant=assistant,
+                        detail=f"Could not finalize trace capture: {type(exc).__name__}: {exc}",
+                        include_assistant_checks=True,
+                    )
+                else:
+                    assistant = ""
+                    checks = _adapter_runtime_failure_checks(exc, trace_error=trace_error)
+            else:
+                tool_traces = _safe_tool_traces(tracer)
+                checks = evaluate_checks(assistant=assistant, tool_traces=tool_traces, checks=turn.checks)
         passed = all(item.passed for item in checks)
         all_passed = all_passed and passed
         turns.append(
             TurnResult(
                 user=turn.user,
                 assistant=assistant,
-                tool_traces=tracer.calls,
+                tool_traces=tool_traces,
                 checks=checks,
                 passed=passed,
                 duration_ms=int((time.time() - turn_started) * 1000),
@@ -254,8 +268,154 @@ def evaluate_checks(
                 )
             )
             continue
-        raise ValueError(f"Unsupported check type: {check.type}")
+        raise ScenarioDefinitionError(f"Unsupported check type: {check.type}")
     return results
+
+
+def _parse_scenario_payload(payload: Any, *, source: Path) -> Scenario:
+    if not isinstance(payload, dict):
+        raise ScenarioDefinitionError(f"Scenario file `{source}` must contain a JSON object.")
+
+    scenario_id = str(payload.get("scenario_id") or "").strip()
+    if not scenario_id:
+        raise ScenarioDefinitionError(f"Scenario file `{source}` must define a non-empty `scenario_id`.")
+
+    raw_turns = payload.get("turns")
+    if not isinstance(raw_turns, list) or not raw_turns:
+        raise ScenarioDefinitionError(f"Scenario `{scenario_id}` must define at least one turn.")
+
+    raw_tags = payload.get("tags", [])
+    if raw_tags is None:
+        raw_tags = []
+    if not isinstance(raw_tags, list):
+        raise ScenarioDefinitionError(f"Scenario `{scenario_id}` must define `tags` as a list.")
+
+    scenario = Scenario(
+        scenario_id=scenario_id,
+        description=str(payload.get("description") or scenario_id),
+        turns=[
+            _parse_turn_payload(turn_payload, scenario_id=scenario_id, turn_index=turn_index)
+            for turn_index, turn_payload in enumerate(raw_turns, start=1)
+        ],
+        destructive=bool(payload.get("destructive", False)),
+        tags=[str(tag).strip() for tag in raw_tags if str(tag).strip()],
+    )
+    _validate_scenario(scenario)
+    return scenario
+
+
+def _parse_turn_payload(payload: Any, *, scenario_id: str, turn_index: int) -> ScenarioTurn:
+    if not isinstance(payload, dict):
+        raise ScenarioDefinitionError(f"Scenario `{scenario_id}` turn {turn_index} must be an object.")
+
+    user = str(payload.get("user") or "").strip()
+    if not user:
+        raise ScenarioDefinitionError(
+            f"Scenario `{scenario_id}` turn {turn_index} must define a non-empty `user` prompt."
+        )
+
+    raw_checks = payload.get("checks", [])
+    if raw_checks is None:
+        raw_checks = []
+    if not isinstance(raw_checks, list):
+        raise ScenarioDefinitionError(f"Scenario `{scenario_id}` turn {turn_index} must define `checks` as a list.")
+
+    checks: list[ScenarioCheck] = []
+    for check_index, check_payload in enumerate(raw_checks, start=1):
+        if not isinstance(check_payload, dict):
+            raise ScenarioDefinitionError(
+                f"Scenario `{scenario_id}` turn {turn_index} check {check_index} must be an object."
+            )
+        try:
+            check = ScenarioCheck(**check_payload)
+        except TypeError as exc:
+            raise ScenarioDefinitionError(
+                f"Scenario `{scenario_id}` turn {turn_index} check {check_index} is invalid: {exc}"
+            ) from exc
+        _validate_check(check, scenario_id=scenario_id, turn_index=turn_index, check_index=check_index)
+        checks.append(check)
+
+    return ScenarioTurn(user=user, checks=checks)
+
+
+def _validate_scenario(scenario: Scenario) -> None:
+    scenario_id = str(scenario.scenario_id).strip()
+    if not scenario_id:
+        raise ScenarioDefinitionError("Scenario must define a non-empty `scenario_id`.")
+    if not scenario.turns:
+        raise ScenarioDefinitionError(f"Scenario `{scenario_id}` must define at least one turn.")
+
+    for turn_index, turn in enumerate(scenario.turns, start=1):
+        if not str(turn.user).strip():
+            raise ScenarioDefinitionError(
+                f"Scenario `{scenario_id}` turn {turn_index} must define a non-empty `user` prompt."
+            )
+        for check_index, check in enumerate(turn.checks, start=1):
+            _validate_check(check, scenario_id=scenario_id, turn_index=turn_index, check_index=check_index)
+
+
+def _validate_check(check: ScenarioCheck, *, scenario_id: str, turn_index: int, check_index: int) -> None:
+    if check.type not in SUPPORTED_CHECK_TYPES:
+        raise ScenarioDefinitionError(
+            f"Scenario `{scenario_id}` turn {turn_index} check {check_index} uses unsupported "
+            f"check type `{check.type}`."
+        )
+
+
+def _safe_tool_traces(tracer: Any) -> list[Any]:
+    calls = getattr(tracer, "calls", [])
+    return list(calls) if isinstance(calls, list) else []
+
+
+def _trace_capture_detail(tracer: Any) -> str | None:
+    detail = getattr(tracer, "capture_error", None)
+    if isinstance(detail, str) and detail.strip():
+        return detail
+    return None
+
+
+def _adapter_runtime_failure_checks(
+    exc: Exception,
+    *,
+    trace_error: str | None = None,
+) -> list[CheckResult]:
+    checks = [
+        CheckResult(
+            check_type="adapter_runtime",
+            passed=False,
+            detail=f"{type(exc).__name__}: {exc}",
+        )
+    ]
+    if trace_error:
+        checks.append(
+            CheckResult(
+                check_type="trace_capture",
+                passed=False,
+                detail=trace_error,
+            )
+        )
+    return checks
+
+
+def _trace_capture_failure_checks(
+    turn: ScenarioTurn,
+    *,
+    assistant: str,
+    detail: str,
+    include_assistant_checks: bool,
+) -> list[CheckResult]:
+    checks: list[CheckResult] = []
+    if include_assistant_checks:
+        assistant_checks = [check for check in turn.checks if check.type not in TOOL_CHECK_TYPES]
+        checks.extend(evaluate_checks(assistant=assistant, tool_traces=[], checks=assistant_checks))
+    checks.append(
+        CheckResult(
+            check_type="trace_capture",
+            passed=False,
+            detail=detail,
+        )
+    )
+    return checks
 
 
 def dict_contains(haystack: dict[str, Any], needle: dict[str, Any]) -> bool:

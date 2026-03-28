@@ -13,7 +13,7 @@ from tinkerloop.adapters.base import AppAdapter
 from tinkerloop.engine import (
     load_failed_scenario_ids,
     load_scenarios,
-    run_scenarios,
+    run_scenario,
     select_scenarios,
     summarize_results,
     write_report,
@@ -419,14 +419,10 @@ def _run_command(args: argparse.Namespace) -> int:
             ),
             metadata_key="scenario_error",
         )
-    results = run_scenarios(
-        scenarios,
-        adapter=adapter,
-        user_id=str(args.user_id),
-        allow_destructive=bool(args.allow_destructive),
-        scenario_filter=scenario_filter or None,
-        tag_filter=tag_filter or None,
-    )
+    results = [
+        run_scenario(scenario, adapter=adapter, user_id=str(args.user_id))
+        for scenario in selected_scenarios
+    ]
     report_file = write_report(results, output_dir=args.report_dir, metadata=metadata)
     print(summarize_results(results))
     print(f"Report: {report_file}")

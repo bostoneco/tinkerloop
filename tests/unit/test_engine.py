@@ -5,6 +5,7 @@ import pytest
 from tinkerloop.adapters.base import AppAdapter, TraceRecorder
 from tinkerloop.adapters.command_target import CommandAppAdapter
 from tinkerloop.engine import (
+    ScenarioDefinitionError,
     SUPPORTED_CHECK_TYPES,
     build_diagnosis_artifact,
     build_failure_artifact,
@@ -46,6 +47,14 @@ class DummyAdapter(AppAdapter):
 class FailingAdapter(AppAdapter):
     def send_user_turn(self, *, user_id: str, user_text: str, correlation_id: str) -> str:
         raise RuntimeError("boom")
+
+
+class TraceSetupFailingAdapter(AppAdapter):
+    def send_user_turn(self, *, user_id: str, user_text: str, correlation_id: str) -> str:
+        return "ok"
+
+    def trace_recorder(self) -> TraceRecorder:
+        raise RuntimeError("trace setup boom")
 
 
 def test_dict_contains_handles_nested_subsets():
@@ -176,6 +185,65 @@ def test_load_scenarios_rejects_duplicate_scenario_ids(tmp_path):
     assert "Duplicate scenario_id found" in str(exc.value)
 
 
+def test_load_scenarios_rejects_empty_turn_lists(tmp_path):
+    scenario_file = tmp_path / "scenario.json"
+    scenario_file.write_text(
+        json.dumps(
+            {
+                "scenario_id": "cleanup_preview_first_unit",
+                "turns": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ScenarioDefinitionError) as exc:
+        load_scenarios(scenario_file)
+
+    assert "must define at least one turn" in str(exc.value)
+
+
+def test_load_scenarios_rejects_empty_user_prompts(tmp_path):
+    scenario_file = tmp_path / "scenario.json"
+    scenario_file.write_text(
+        json.dumps(
+            {
+                "scenario_id": "cleanup_preview_first_unit",
+                "turns": [{"user": "   "}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ScenarioDefinitionError) as exc:
+        load_scenarios(scenario_file)
+
+    assert "non-empty `user` prompt" in str(exc.value)
+
+
+def test_load_scenarios_rejects_unsupported_check_types(tmp_path):
+    scenario_file = tmp_path / "scenario.json"
+    scenario_file.write_text(
+        json.dumps(
+            {
+                "scenario_id": "cleanup_preview_first_unit",
+                "turns": [
+                    {
+                        "user": "Preview",
+                        "checks": [{"type": "bogus"}],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ScenarioDefinitionError) as exc:
+        load_scenarios(scenario_file)
+
+    assert "unsupported check type `bogus`" in str(exc.value)
+
+
 def test_select_scenarios_applies_filters():
     scenarios = [
         Scenario(
@@ -238,6 +306,28 @@ def test_run_scenario_records_adapter_failure_as_failed_turn():
     assert "boom" in result.turns[0].checks[0].detail
 
 
+def test_run_scenario_records_trace_setup_failure_as_failed_turn():
+    scenario = Scenario(
+        scenario_id="cleanup_preview_first_unit",
+        description="demo",
+        turns=[
+            ScenarioTurn(
+                user="Preview the first cleanup unit",
+                checks=[ScenarioCheck(type="assistant_contains_all", values=["ok"])],
+            )
+        ],
+    )
+
+    result = run_scenario(scenario, adapter=TraceSetupFailingAdapter(), user_id="u1")
+
+    assert result.passed is False
+    assert result.turns[0].assistant == ""
+    assert result.turns[0].tool_traces == []
+    assert len(result.turns[0].checks) == 1
+    assert result.turns[0].checks[0].check_type == "trace_capture"
+    assert "Could not initialize trace capture" in result.turns[0].checks[0].detail
+
+
 def test_run_scenario_marks_missing_traces_as_trace_capture_failure(tmp_path):
     script = tmp_path / "runner.py"
     script.write_text(
@@ -274,6 +364,73 @@ print("Preview ready")
     assert result.turns[0].checks[-1].check_type == "trace_capture"
     assert "did not write a trace file" in result.turns[0].checks[-1].detail
     assert all(check.check_type != "tool_used" for check in result.turns[0].checks)
+
+
+def test_run_scenario_preserves_adapter_failure_when_command_trace_is_missing(tmp_path):
+    script = tmp_path / "runner.py"
+    script.write_text(
+        """
+import sys
+print("boom", file=sys.stderr)
+sys.exit(3)
+""".strip(),
+        encoding="utf-8",
+    )
+    adapter = CommandAppAdapter(
+        command_builder=lambda user_id, user_text, correlation_id: [
+            "python",
+            str(script),
+        ],
+        workdir=tmp_path,
+    )
+    scenario = Scenario(
+        scenario_id="cleanup_preview_first_unit",
+        description="demo",
+        turns=[ScenarioTurn(user="Preview the first cleanup unit", checks=[])],
+    )
+
+    result = run_scenario(scenario, adapter=adapter, user_id="u1")
+
+    assert result.passed is False
+    assert result.turns[0].assistant == ""
+    assert result.turns[0].tool_traces == []
+    assert [check.check_type for check in result.turns[0].checks] == [
+        "adapter_runtime",
+        "trace_capture",
+    ]
+    assert "boom" in result.turns[0].checks[0].detail
+    assert "did not write a trace file" in result.turns[0].checks[1].detail
+
+
+def test_run_scenario_rejects_invalid_scenarios_before_execution():
+    scenario = Scenario(
+        scenario_id="cleanup_preview_first_unit",
+        description="demo",
+        turns=[],
+    )
+
+    with pytest.raises(ScenarioDefinitionError) as exc:
+        run_scenario(scenario, adapter=DummyAdapter(), user_id="u1")
+
+    assert "must define at least one turn" in str(exc.value)
+
+
+def test_run_scenario_rejects_unsupported_checks_before_execution():
+    scenario = Scenario(
+        scenario_id="cleanup_preview_first_unit",
+        description="demo",
+        turns=[
+            ScenarioTurn(
+                user="Preview the first cleanup unit",
+                checks=[ScenarioCheck(type="bogus")],
+            )
+        ],
+    )
+
+    with pytest.raises(ScenarioDefinitionError) as exc:
+        run_scenario(scenario, adapter=DummyAdapter(), user_id="u1")
+
+    assert "unsupported check type `bogus`" in str(exc.value)
 
 
 def test_build_report_payload_collects_failures():

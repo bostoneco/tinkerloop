@@ -47,7 +47,9 @@ class FileTraceRecorder(TraceRecorder):
             if self._trace_file:
                 self._trace_file.unlink(missing_ok=True)
         if error_message:
-            raise TraceCaptureError(error_message)
+            self.capture_error = error_message
+            if exc_type is None:
+                raise TraceCaptureError(error_message)
         return None
 
 
@@ -95,6 +97,8 @@ class CommandAppAdapter(AppAdapter):
             "adapter": type(self).__name__,
             "workdir": str(self.workdir),
             "timeout_seconds": self.timeout_seconds,
+            "env_files": [str(path) for path in self.env_files],
+            "env_override_keys": sorted(self.env_overrides),
         }
 
     def _build_env(self) -> dict[str, str]:
