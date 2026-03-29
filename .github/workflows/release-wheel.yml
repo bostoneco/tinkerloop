@@ -1,4 +1,4 @@
-name: Release Wheel
+name: Release Packages
 
 on:
   release:
@@ -10,6 +10,8 @@ permissions:
 jobs:
   build-and-upload:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Check out repo
         uses: actions/checkout@v4
@@ -27,8 +29,8 @@ jobs:
       - name: Run tests
         run: python -m pytest -q
 
-      - name: Build wheel
-        run: python -m build --wheel
+      - name: Build distributions
+        run: python -m build
 
       - name: Smoke test built wheel
         run: |
@@ -47,14 +49,31 @@ jobs:
             --scenarios examples/demo_app/scenarios \
             --report-dir /tmp/tinkerloop-demo-artifacts
 
-      - name: Upload wheel to workflow artifacts
+      - name: Upload distributions to workflow artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: tinkerloop-wheel
-          path: dist/*.whl
+          name: tinkerloop-dist
+          path: dist/*
 
-      - name: Attach wheel to GitHub release
+      - name: Attach distributions to GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: gh release upload "$RELEASE_TAG" dist/*.whl --clobber
+        run: gh release upload "$RELEASE_TAG" dist/* --clobber
+
+  publish-pypi:
+    if: ${{ !github.event.release.prerelease }}
+    needs: build-and-upload
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: tinkerloop-dist
+          path: dist
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

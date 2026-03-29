@@ -27,8 +27,8 @@ jobs:
       - name: Run tests
         run: python -m pytest -q
 
-      - name: Build wheel
-        run: python -m build --wheel
+      - name: Build distributions
+        run: python -m build
 
       - name: Smoke test built wheel
         run: |

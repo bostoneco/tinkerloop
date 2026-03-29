@@ -3,7 +3,7 @@ requires = ["hatchling>=1.27.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "tinkerloop"
+name = "tinkerloop-ai"
 dynamic = ["version"]
 description = "Eval-driven test/fix/improve harness for orchestrator-based apps"
 readme = "README.md"

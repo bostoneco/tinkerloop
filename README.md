@@ -64,10 +64,16 @@ Not in scope yet:
 
 Tinkerloop requires **Python 3.12+**. This repo pins `3.12.9` in [`.python-version`](.python-version) for `pyenv`.
 
-Install from a GitHub release wheel:
+The PyPI distribution name is `tinkerloop-ai`. Install it with:
 
 ```bash
-python3.12 -m pip install https://github.com/bostoneco/tinkerloop/releases/download/<tag>/tinkerloop-<version>-py3-none-any.whl
+python3.12 -m pip install tinkerloop-ai
+```
+
+If you need to install directly from a GitHub release asset instead:
+
+```bash
+python3.12 -m pip install https://github.com/bostoneco/tinkerloop/releases/download/<tag>/tinkerloop_ai-<version>-py3-none-any.whl
 ```
 
 Then run it against a target-owned adapter and scenario directory:
