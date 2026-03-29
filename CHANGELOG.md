@@ -4,6 +4,10 @@ All notable changes to Tinkerloop should be recorded here.
 
 ## Unreleased
 
+### Changed
+
+- renamed the PyPI distribution to `tinkerloop-ai` and prepared Trusted Publishing for stable releases
+
 ## 0.1.2
 
 ### Changed

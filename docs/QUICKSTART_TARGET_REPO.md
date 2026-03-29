@@ -6,7 +6,13 @@ This is the shortest path from zero to a working target-owned integration.
 
 Tinkerloop requires **Python 3.12+**. If you are working from a source checkout of this repo, use the pinned `3.12.9` from [`.python-version`](../.python-version).
 
-From a wheel release:
+When the PyPI release is available:
+
+```bash
+python3.12 -m pip install tinkerloop-ai
+```
+
+Before that, install from a wheel release:
 
 ```bash
 python3.12 -m pip install /path/to/tinkerloop-<version>-py3-none-any.whl
