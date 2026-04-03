@@ -233,7 +233,7 @@ def _warn_if_confirmation_is_provisional(confirmation_status: str | None) -> Non
     if confirmation_status not in {"missing", "stale"}:
         return
     print(
-        "Repair loop passed but confirmation is missing or stale. Results are provisional until tinkerloop confirm passes.",
+        "Repair loop passed. Run tinkerloop confirm to validate with the real inner model. Without confirmation, these results do not prove agent quality.",
         file=sys.stderr,
     )
 
@@ -355,7 +355,7 @@ def _run_command(args: argparse.Namespace) -> int:
     metadata: dict[str, object] = {
         "adapter_path": str(args.adapter),
         "run_kind": run_kind,
-        "confirmation_status": "failing" if command == "confirm" else repair_confirmation_status,
+        "confirmation_status": "blocked" if command == "confirm" else repair_confirmation_status,
     }
     try:
         adapter = load_adapter(args.adapter)
@@ -389,6 +389,9 @@ def _run_command(args: argparse.Namespace) -> int:
 
     metadata["preflight"] = asdict(preflight)
     if not preflight.ready:
+        metadata["preflight_error"] = preflight.summary
+        if command == "confirm":
+            metadata["confirmation_status"] = "blocked"
         return _write_error_report(
             report_dir=args.report_dir,
             metadata=metadata,
@@ -491,6 +494,7 @@ def _run_command(args: argparse.Namespace) -> int:
     print(f"Report: {report_file}")
     if command == "run" and all_passed:
         _warn_if_confirmation_is_provisional(str(metadata.get("confirmation_status") or ""))
+        return 3
     return 0 if all_passed else 1
 
 

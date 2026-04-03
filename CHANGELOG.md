@@ -4,6 +4,14 @@ All notable changes to Tinkerloop should be recorded here.
 
 ## Unreleased
 
+## 0.1.5
+
+### Changed
+
+- `tinkerloop run` now exits with code `3` after a green repair loop so confirmation is a real gate for CI and coding models
+- `tinkerloop confirm` now writes blocked confirmation artifacts with `confirmation_status: "blocked"` and the preflight error when infra prevents validation
+- CLI summaries, diagnosis artifacts, smoke workflows, and user docs now reflect the confirmation gate instead of treating it as a soft suggestion
+
 ## 0.1.4
 
 ### Changed

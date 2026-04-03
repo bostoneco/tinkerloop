@@ -58,13 +58,14 @@ Treat that as the stronger acceptance gate for claims about real agent behavior.
 
 - The outer coding model may patch code between runs, but it is not the system under test.
 - The inner target orchestrator must be the thing exercised during measured runs.
-- A green repair loop is provisional until the confirmation loop passes.
-- Treat a repair-loop warning about missing or stale confirmation as a required follow-up, not an informational extra.
+- A green repair loop is not final. `tinkerloop run` exits with code `3` until the confirmation loop passes.
+- Treat the repair-loop confirmation message as a required follow-up, not an informational extra.
 - Keep the inner runtime explicit in notes and reports whenever it matters to the result.
 - Do not compare runs taken against different runtime selections as if they were equivalent.
 - Do not treat a passing targeted rerun as sufficient if the change can affect unrelated scenarios.
 - When a preflight fails, fix readiness first instead of debugging scenario behavior.
 - Prefer repeated small loops over a single large patch followed by a full rerun.
+- If confirmation is blocked by infra, keep the `confirm-latest-diagnosis.json` artifact and fix the blocked dependency before declaring success.
 
 ## Scenario Authoring Rules
 
