@@ -691,6 +691,22 @@ def test_build_diagnosis_artifact_includes_confirmation_status():
     assert payload["summary"]["confirmation_status"] == "stale"
 
 
+def test_build_diagnosis_artifact_includes_blocked_confirmation_status():
+    payload = build_diagnosis_artifact(
+        [],
+        metadata={
+            "adapter": {"name": "dummy"},
+            "preflight": {"status": "blocked", "summary": "model unreachable"},
+            "preflight_error": "model unreachable",
+            "confirmation_status": "blocked",
+        },
+    )
+
+    assert payload["confirmation_status"] == "blocked"
+    assert payload["summary"]["confirmation_status"] == "blocked"
+    assert payload["metadata"]["preflight_error"] == "model unreachable"
+
+
 def test_summarize_results_notes_missing_confirmation_for_green_repair_run():
     passed_result = run_scenario(
         Scenario(
@@ -709,7 +725,10 @@ def test_summarize_results_notes_missing_confirmation_for_green_repair_run():
 
     summary = summarize_results([passed_result], confirmation_status="missing")
 
-    assert "NOTE: No confirmation run found. Repair results are provisional." in summary
+    assert (
+        "NOTE: Repair loop passed. Run tinkerloop confirm to validate with the real inner model. "
+        "Without confirmation, these results do not prove agent quality."
+    ) in summary
 
 
 def test_run_scenarios_can_filter_by_tag():

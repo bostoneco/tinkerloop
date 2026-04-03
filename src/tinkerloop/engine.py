@@ -666,18 +666,20 @@ def _confirmation_status_value(value: Any) -> str | None:
     if not isinstance(value, str):
         return None
     normalized = value.strip().lower()
-    if normalized in {"missing", "stale", "passing", "failing"}:
+    if normalized in {"missing", "stale", "passing", "failing", "blocked"}:
         return normalized
     return None
 
 
 def _confirmation_note(confirmation_status: str | None) -> str | None:
     if confirmation_status == "missing":
-        return "NOTE: No confirmation run found. Repair results are provisional."
+        return "NOTE: Repair loop passed. Run tinkerloop confirm to validate with the real inner model. Without confirmation, these results do not prove agent quality."
     if confirmation_status == "stale":
-        return "NOTE: Confirmation run is stale. Repair results are provisional."
+        return "NOTE: Repair loop passed. Run tinkerloop confirm to validate with the real inner model. Without confirmation, these results do not prove agent quality."
     if confirmation_status == "failing":
         return "NOTE: Latest confirmation run failed. Repair results are provisional."
+    if confirmation_status == "blocked":
+        return "NOTE: Latest confirmation attempt was blocked. Repair results are provisional."
     return None
 
 

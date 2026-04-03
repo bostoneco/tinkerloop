@@ -100,6 +100,9 @@ tinkerloop \
   --scenarios /path/to/scenarios
 ```
 
+`tinkerloop run` exits with code `3` when the repair loop passes.
+That is intentional: run `tinkerloop confirm ...` before treating the result as final.
+
 When a candidate fix looks good, run the external confirmation loop:
 
 ```bash
@@ -191,8 +194,12 @@ Artifacts written on each run:
 - confirmation failure summary: `confirm-latest-failures.json`
 - confirmation diagnosis payload: `confirm-latest-diagnosis.json`
 
-When a repair run passes without a fresh confirmation run, Tinkerloop prints a
-warning and marks the repair results as provisional.
+When a repair run passes, Tinkerloop exits with code `3` and tells you to run
+`tinkerloop confirm ...`.
+Repair-only results do not prove agent quality.
+If confirmation is blocked, Tinkerloop still writes
+`confirm-latest-diagnosis.json` with `confirmation_status: "blocked"` and the
+preflight error so the attempt is visible in artifacts.
 
 ## Docs Map
 

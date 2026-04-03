@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 from pathlib import Path
 
 import pytest
@@ -398,7 +399,7 @@ def test_main_uses_failed_from_to_filter_scenarios(monkeypatch, tmp_path):
         ]
     )
 
-    assert exit_code == 0
+    assert exit_code == 3
     assert captured["scenario_ids"] == ["cleanup_preview_first_unit"]
 
 
@@ -463,7 +464,7 @@ def test_main_passes_tag_filter(monkeypatch, tmp_path):
         ]
     )
 
-    assert exit_code == 0
+    assert exit_code == 3
     assert captured["scenario_ids"] == ["cleanup_preview_first_unit"]
 
 
@@ -524,7 +525,7 @@ def test_main_accepts_run_subcommand(monkeypatch, tmp_path):
         ]
     )
 
-    assert exit_code == 0
+    assert exit_code == 3
     assert captured["user_id"] == "u1"
     assert captured["scenario_id"] == "cleanup_preview_first_unit"
 
@@ -663,6 +664,43 @@ def test_main_confirm_uses_prefixed_failed_from_reports(monkeypatch, tmp_path):
     assert captured["failed_from_prefix"] == "confirm-"
 
 
+def test_main_confirm_writes_blocked_diagnosis_artifact_when_preflight_is_not_ready(
+    monkeypatch, tmp_path, capsys
+):
+    class BlockedConfirmAdapter(DummyAdapter):
+        def preflight(self, *, user_id: str) -> PreflightResult:
+            return PreflightResult(status="blocked", summary="model unreachable")
+
+    monkeypatch.setattr(
+        "tinkerloop.cli.load_adapter",
+        lambda _factory_path: BlockedConfirmAdapter(),
+    )
+
+    exit_code = main(
+        [
+            "confirm",
+            "--adapter",
+            "tests.fixtures.sample_adapter:create_adapter",
+            "--user-id",
+            "u1",
+            "--scenarios",
+            str(tmp_path),
+            "--report-dir",
+            str(tmp_path),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    diagnosis_payload = json.loads(
+        (tmp_path / "confirm-latest-diagnosis.json").read_text(encoding="utf-8")
+    )
+    assert exit_code == 2
+    assert "model unreachable" in captured.err
+    assert diagnosis_payload["confirmation_status"] == "blocked"
+    assert diagnosis_payload["metadata"]["preflight_error"] == "model unreachable"
+    assert diagnosis_payload["summary"]["preflight_status"] == "blocked"
+
+
 def test_main_non_interactive_disables_runtime_prompt(monkeypatch, tmp_path, capsys):
     adapter = DummyAdapter(
         candidates=[
@@ -764,9 +802,15 @@ def test_main_run_warns_when_confirmation_is_missing(monkeypatch, tmp_path, caps
     )
 
     captured = capsys.readouterr()
-    assert exit_code == 0
-    assert "NOTE: No confirmation run found. Repair results are provisional." in captured.out
-    assert "Repair loop passed but confirmation is missing or stale." in captured.err
+    assert exit_code == 3
+    assert (
+        "NOTE: Repair loop passed. Run tinkerloop confirm to validate with the real inner model. "
+        "Without confirmation, these results do not prove agent quality."
+    ) in captured.out
+    assert (
+        "Repair loop passed. Run tinkerloop confirm to validate with the real inner model. "
+        "Without confirmation, these results do not prove agent quality."
+    ) in captured.err
 
 
 def test_main_run_marks_confirmation_stale_when_confirm_artifact_exists(
@@ -828,10 +872,16 @@ def test_main_run_marks_confirmation_stale_when_confirm_artifact_exists(
     )
 
     captured_output = capsys.readouterr()
-    assert exit_code == 0
+    assert exit_code == 3
     assert captured["metadata"]["confirmation_status"] == "stale"
-    assert "NOTE: Confirmation run is stale. Repair results are provisional." in captured_output.out
-    assert "Repair loop passed but confirmation is missing or stale." in captured_output.err
+    assert (
+        "NOTE: Repair loop passed. Run tinkerloop confirm to validate with the real inner model. "
+        "Without confirmation, these results do not prove agent quality."
+    ) in captured_output.out
+    assert (
+        "Repair loop passed. Run tinkerloop confirm to validate with the real inner model. "
+        "Without confirmation, these results do not prove agent quality."
+    ) in captured_output.err
 
 
 def test_main_fails_when_no_scenarios_loaded(monkeypatch, tmp_path, capsys):

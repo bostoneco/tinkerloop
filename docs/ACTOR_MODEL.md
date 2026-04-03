@@ -61,7 +61,9 @@ Confirmation loop artifacts:
 - `confirm-latest-diagnosis.json`
 
 Keep these separate.
-A green repair loop is provisional.
+A green repair loop is not a final pass.
+A successful `tinkerloop run` exits with code `3` until `tinkerloop confirm`
+passes against the real inner model.
 A green confirmation loop is the stronger acceptance signal.
 `latest-diagnosis.json` now includes `confirmation_status` so coding models can
 see that gap directly.

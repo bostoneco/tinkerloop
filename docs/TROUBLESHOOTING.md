@@ -73,7 +73,8 @@ Checks:
 
 Symptoms:
 
-- the CLI prints `Repair loop passed but confirmation is missing or stale`
+- `tinkerloop run` exits with code `3`
+- the CLI prints `Repair loop passed. Run tinkerloop confirm to validate with the real inner model. Without confirmation, these results do not prove agent quality.`
 - the summary includes a `NOTE:` about confirmation
 - `latest-diagnosis.json` shows `confirmation_status` as `missing` or `stale`
 
@@ -82,3 +83,17 @@ Checks:
 - run `tinkerloop confirm ...` against the intended target boundary
 - if the target repo has a more realistic runner or adapter, use that for `confirm`
 - do not treat the green repair run as final until confirmation passes
+
+## Confirmation Was Blocked By Infra
+
+Symptoms:
+
+- `tinkerloop confirm` exits with code `2`
+- `confirm-latest-diagnosis.json` shows `confirmation_status` as `blocked`
+- the diagnosis metadata includes `preflight_error`
+
+Checks:
+
+- inspect the preflight error first
+- fix model access, credentials, network reachability, or adapter readiness
+- rerun `tinkerloop confirm ...` after the blocked dependency is restored

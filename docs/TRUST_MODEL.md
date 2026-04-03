@@ -15,9 +15,10 @@ A passing run means:
 - the observed tool path matched what the checks required
 - the adapter reported whatever run metadata it implements for that execution
 
-For `tinkerloop run`, a passing repair run is still provisional until the
+For `tinkerloop run`, a passing repair run still exits with code `3` until the
 confirmation loop passes. Check `confirmation_status` in
-`latest-diagnosis.json`.
+`latest-diagnosis.json`. Without confirmation, the repair loop does not prove
+agent quality.
 
 ## What A Passing Run Does Not Mean
 
@@ -75,6 +76,8 @@ Failures are uncertain when:
 - trace capture is missing or obviously incomplete
 
 In uncertain cases, fix adapter/runtime fidelity first.
+Blocked confirmation attempts still write `confirm-latest-diagnosis.json` with
+`confirmation_status: "blocked"` and the preflight error.
 
 ## Smoke Reproducibility Note
 

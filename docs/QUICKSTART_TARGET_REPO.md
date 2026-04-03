@@ -74,6 +74,9 @@ tinkerloop \
   --scenarios /path/to/scenarios
 ```
 
+Expect exit code `3` when that repair run passes.
+That is the confirmation gate, not a failure in the repair loop itself.
+
 ## 6. Inspect Artifacts
 
 Treat these as primary evidence:
