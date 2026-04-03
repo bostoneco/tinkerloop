@@ -14,6 +14,11 @@ Start with:
 
 ## Default loop
 
+Actor boundary:
+- the outer coding model may patch and rerun
+- the inner target orchestrator is the system under test
+- do not let the outer coding model satisfy scenarios directly
+
 1. Confirm preflight and runtime selection first.
 2. Run the smallest valid slice with `--scenario` or `--tag`.
 3. Inspect artifacts, not just terminal output:
@@ -24,6 +29,7 @@ Start with:
 5. Rerun the failing slice.
 6. Rerun the failed set from report artifacts with `--failed-from`.
 7. Finish with the broader regression slice that matches the change.
+8. If the real target agent matters, run `tinkerloop confirm ...` as the final gate.
 
 ## Canonical commands
 
@@ -35,6 +41,16 @@ tinkerloop run \
   --user-id <user-id> \
   --scenarios /path/to/target/scenarios \
   --tag <tag>
+```
+
+Confirmation gate:
+
+```bash
+tinkerloop confirm \
+  --adapter /path/to/target/adapter.py:create_adapter \
+  --user-id <user-id> \
+  --scenarios /path/to/target/scenarios \
+  --non-interactive
 ```
 
 Rerun the failed set from report artifacts:

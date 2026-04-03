@@ -13,6 +13,7 @@ Use this checklist when cutting a release (e.g. a public `alpha` or patch releas
 
 - run `python -m pytest -q`
 - run `python -m build`
+- install the wheel into a clean Python `3.10` environment
 - install the wheel into a clean Python `3.12` environment
 - run the starter target example through `examples/starter_target/adapter.py:create_adapter`
 - run the demo app example through `examples/demo_app/adapter.py:create_adapter`

@@ -26,7 +26,7 @@ Contributions should preserve the core project boundaries:
 
 ## Local Setup
 
-This repo pins **Python 3.12.9** in [`.python-version`](.python-version). With `pyenv` installed:
+Tinkerloop supports **Python 3.10+**. This repo pins **Python 3.12.9** in [`.python-version`](.python-version) for local development. With `pyenv` installed:
 
 ```bash
 pyenv local 3.12.9
@@ -48,7 +48,7 @@ pytest -q
 Before opening a PR:
 
 - run `pytest -q`
-- run `python -m build --wheel`
+- run `python -m build`
 - verify the starter target quickstart still works
 - describe user-facing behavior changes and any stable-surface impact
 

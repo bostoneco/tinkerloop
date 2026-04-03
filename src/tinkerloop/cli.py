@@ -211,10 +211,14 @@ def _write_error_report(
     metadata: dict[str, object],
     message: str,
     metadata_key: str | None = None,
+    artifact_prefix: str = "",
 ) -> int:
     if metadata_key:
         metadata[metadata_key] = message
-    report_file = write_report([], output_dir=report_dir, metadata=metadata)
+    write_kwargs = {"output_dir": report_dir, "metadata": metadata}
+    if artifact_prefix:
+        write_kwargs["artifact_prefix"] = artifact_prefix
+    report_file = write_report([], **write_kwargs)
     print(message, file=sys.stderr)
     print(f"Report: {report_file}", file=sys.stderr)
     return 2
@@ -279,13 +283,18 @@ def _add_run_arguments(parser: argparse.ArgumentParser) -> None:
         default="artifacts/reports",
         help="Where to write JSON reports",
     )
+    parser.add_argument(
+        "--non-interactive",
+        action="store_true",
+        help="Fail instead of prompting for runtime selection",
+    )
 
 
 def _build_root_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="tinkerloop",
         description="Tinkerloop CLI",
-        epilog="Use `tinkerloop run ...` to execute scenarios.",
+        epilog="Use `tinkerloop run ...` for the repair loop or `tinkerloop confirm ...` for external validation.",
     )
     parser.add_argument(
         "--version",
@@ -296,9 +305,15 @@ def _build_root_parser() -> argparse.ArgumentParser:
     run_parser = subparsers.add_parser(
         "run",
         help="Run scenarios against a target adapter",
-        description="Run Tinkerloop scenarios",
+        description="Run the repair loop against a target adapter",
     )
     _add_run_arguments(run_parser)
+    confirm_parser = subparsers.add_parser(
+        "confirm",
+        help="Run external validation against a target adapter",
+        description="Run the external confirmation loop against a target adapter",
+    )
+    _add_run_arguments(confirm_parser)
     return parser
 
 
@@ -310,17 +325,21 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     if argv[0] in {"-h", "--help", "--version"}:
         root_parser.parse_args(argv)
         raise AssertionError("parse_args should exit for top-level help/version")
-    if argv[0] == "run":
+    if argv[0] in {"run", "confirm"}:
         return root_parser.parse_args(argv)
     if argv[0].startswith("-"):
-        root_parser.error("Missing command `run`. Use `tinkerloop run ...`.")
-    root_parser.error(f"Unknown command `{argv[0]}`. Use `tinkerloop run ...`.")
+        root_parser.error("Missing command `run` or `confirm`.")
+    root_parser.error(f"Unknown command `{argv[0]}`. Use `tinkerloop run ...` or `tinkerloop confirm ...`.")
     raise AssertionError("root_parser.error should exit")
 
 
 def _run_command(args: argparse.Namespace) -> int:
+    command = str(args.command or "run")
+    artifact_prefix = "confirm-" if command == "confirm" else ""
+    run_kind = "external_validation" if command == "confirm" else "repair"
     metadata: dict[str, object] = {
         "adapter_path": str(args.adapter),
+        "run_kind": run_kind,
     }
     try:
         adapter = load_adapter(args.adapter)
@@ -330,6 +349,7 @@ def _run_command(args: argparse.Namespace) -> int:
             metadata=metadata,
             message=f"{type(exc).__name__}: {exc}",
             metadata_key="adapter_error",
+            artifact_prefix=artifact_prefix,
         )
 
     try:
@@ -348,6 +368,7 @@ def _run_command(args: argparse.Namespace) -> int:
             metadata=metadata,
             message=f"{type(exc).__name__}: {exc}",
             metadata_key="preflight_error",
+            artifact_prefix=artifact_prefix,
         )
 
     metadata["preflight"] = asdict(preflight)
@@ -356,6 +377,7 @@ def _run_command(args: argparse.Namespace) -> int:
             report_dir=args.report_dir,
             metadata=metadata,
             message=preflight.summary,
+            artifact_prefix=artifact_prefix,
         )
 
     try:
@@ -364,6 +386,7 @@ def _run_command(args: argparse.Namespace) -> int:
             user_id=str(args.user_id),
             inner_provider=str(args.inner_provider),
             inner_model=str(args.inner_model),
+            interactive=False if args.non_interactive else None,
         )
     except Exception as exc:
         return _write_error_report(
@@ -371,6 +394,7 @@ def _run_command(args: argparse.Namespace) -> int:
             metadata=metadata,
             message=f"{type(exc).__name__}: {exc}",
             metadata_key="runtime_error",
+            artifact_prefix=artifact_prefix,
         )
 
     metadata.update(runtime_metadata)
@@ -379,7 +403,13 @@ def _run_command(args: argparse.Namespace) -> int:
         scenario_filter = set(args.scenario) if args.scenario else set()
         tag_filter = set(args.tag) if args.tag else set()
         if args.failed_from:
-            failed_ids = load_failed_scenario_ids(args.failed_from)
+            if artifact_prefix:
+                failed_ids = load_failed_scenario_ids(
+                    args.failed_from,
+                    artifact_prefix=artifact_prefix,
+                )
+            else:
+                failed_ids = load_failed_scenario_ids(args.failed_from)
             scenario_filter.update(failed_ids)
             metadata["rerun_failed_from"] = str(args.failed_from)
             metadata["rerun_failed_scenario_ids"] = sorted(failed_ids)
@@ -389,6 +419,7 @@ def _run_command(args: argparse.Namespace) -> int:
             metadata=metadata,
             message=str(exc),
             metadata_key="scenario_error",
+            artifact_prefix=artifact_prefix,
         )
     if tag_filter:
         metadata["tag_filter"] = sorted(tag_filter)
@@ -400,6 +431,7 @@ def _run_command(args: argparse.Namespace) -> int:
             metadata=metadata,
             message="No scenarios were selected to run.",
             metadata_key="scenario_error",
+            artifact_prefix=artifact_prefix,
         )
     selected_scenarios = select_scenarios(
         scenarios,
@@ -418,12 +450,16 @@ def _run_command(args: argparse.Namespace) -> int:
                 allow_destructive=bool(args.allow_destructive),
             ),
             metadata_key="scenario_error",
+            artifact_prefix=artifact_prefix,
         )
     results = [
         run_scenario(scenario, adapter=adapter, user_id=str(args.user_id))
         for scenario in selected_scenarios
     ]
-    report_file = write_report(results, output_dir=args.report_dir, metadata=metadata)
+    write_kwargs = {"output_dir": args.report_dir, "metadata": metadata}
+    if artifact_prefix:
+        write_kwargs["artifact_prefix"] = artifact_prefix
+    report_file = write_report(results, **write_kwargs)
     print(summarize_results(results))
     print(f"Report: {report_file}")
     return 0 if all(result.passed for result in results) else 1

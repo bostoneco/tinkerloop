@@ -4,8 +4,9 @@ Tinkerloop is in **alpha**. This document defines the contract for the initial `
 
 ## Supported In `v0.x`
 
-- Python `3.12`
+- Python `3.10+`
 - local CLI execution through `tinkerloop`
+- CLI commands `run` and `confirm`
 - target-owned adapters loaded by import path or file path
 - `PythonAppAdapter`
 - `CommandAppAdapter`
@@ -20,6 +21,9 @@ Tinkerloop is in **alpha**. This document defines the contract for the initial `
   - `latest.json`
   - `latest-failures.json`
   - `latest-diagnosis.json`
+  - `confirm-latest.json`
+  - `confirm-latest-failures.json`
+  - `confirm-latest-diagnosis.json`
 - report schema versions:
   - `tinkerloop.report.v1`
   - `tinkerloop.failures.v1`

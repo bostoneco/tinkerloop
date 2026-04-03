@@ -7,6 +7,8 @@ All notable changes to Tinkerloop should be recorded here.
 ### Changed
 
 - renamed the PyPI distribution to `tinkerloop-ai` and prepared Trusted Publishing for stable releases
+- lowered the supported Python floor to `3.10` and expanded CI coverage to `3.10` through `3.12`
+- added an explicit `confirm` command, confirmation artifact namespace, and actor-model docs for outer coding-model vs inner target-orchestrator workflows
 
 ## 0.1.2
 

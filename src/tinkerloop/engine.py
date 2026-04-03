@@ -436,25 +436,26 @@ def write_report(
     *,
     output_dir: str | Path,
     metadata: dict[str, Any] | None = None,
+    artifact_prefix: str = "",
 ) -> Path:
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-    filename = f"tinkerloop-{int(time.time())}.json"
+    filename = f"{artifact_prefix}tinkerloop-{int(time.time())}.json"
     report_file = output_path / filename
     payload = build_report_payload(results, metadata=metadata)
     with open(report_file, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2)
-    latest_file = output_path / "latest.json"
+    latest_file = output_path / f"{artifact_prefix}latest.json"
     with open(latest_file, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2)
 
     failure_payload = build_failure_artifact(results, metadata=metadata)
-    latest_failures_file = output_path / "latest-failures.json"
+    latest_failures_file = output_path / f"{artifact_prefix}latest-failures.json"
     with open(latest_failures_file, "w", encoding="utf-8") as f:
         json.dump(failure_payload, f, indent=2)
 
     diagnosis_payload = build_diagnosis_artifact(results, metadata=metadata)
-    latest_diagnosis_file = output_path / "latest-diagnosis.json"
+    latest_diagnosis_file = output_path / f"{artifact_prefix}latest-diagnosis.json"
     with open(latest_diagnosis_file, "w", encoding="utf-8") as f:
         json.dump(diagnosis_payload, f, indent=2)
     return report_file
@@ -523,14 +524,26 @@ def build_failure_artifact(
     }
 
 
-def load_failed_scenario_ids(path: str | Path) -> list[str]:
+def load_failed_scenario_ids(path: str | Path, *, artifact_prefix: str = "") -> list[str]:
     target = Path(path)
     if target.is_dir():
-        for candidate_name in ("latest-failures.json", "latest.json"):
+        candidate_names = [
+            f"{artifact_prefix}latest-failures.json",
+            f"{artifact_prefix}latest.json",
+        ]
+        if artifact_prefix:
+            candidate_names.extend(["latest-failures.json", "latest.json"])
+        for candidate_name in candidate_names:
             candidate = target / candidate_name
             if candidate.is_file():
                 return load_failed_scenario_ids(candidate)
-        reports = sorted(target.glob("tinkerloop-*.json"), reverse=True)
+        report_patterns = [f"{artifact_prefix}tinkerloop-*.json"]
+        if artifact_prefix:
+            report_patterns.append("tinkerloop-*.json")
+        reports: list[Path] = []
+        for pattern in report_patterns:
+            reports.extend(target.glob(pattern))
+        reports = sorted(set(reports), reverse=True)
         if reports:
             return load_failed_scenario_ids(reports[0])
         raise FileNotFoundError(f"No Tinkerloop report files found in {target}")

@@ -529,6 +529,187 @@ def test_main_accepts_run_subcommand(monkeypatch, tmp_path):
     assert captured["scenario_id"] == "cleanup_preview_first_unit"
 
 
+def test_main_accepts_confirm_subcommand_and_writes_prefixed_artifacts(monkeypatch, tmp_path):
+    adapter = DummyAdapter(
+        resolved=RuntimeSpec(
+            provider="bedrock",
+            model="us.amazon.nova-pro-v1:0",
+            source="target_repo_defaults",
+            confidence="high",
+            reason="Resolved.",
+        )
+    )
+    captured = {}
+    monkeypatch.setattr("tinkerloop.cli.load_adapter", lambda _factory_path: adapter)
+    monkeypatch.setattr(
+        "tinkerloop.cli.load_scenarios",
+        lambda _path: [
+            Scenario(
+                scenario_id="cleanup_preview_first_unit",
+                description="demo",
+                turns=[ScenarioTurn(user="Preview the first cleanup unit")],
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "tinkerloop.cli.run_scenario",
+        lambda scenario, *, adapter, user_id: ScenarioResult(
+            scenario_id=scenario.scenario_id,
+            description=scenario.description,
+            destructive=scenario.destructive,
+            user_id=user_id,
+            started_at=0,
+            duration_ms=0,
+            passed=True,
+            turns=[],
+        ),
+    )
+    monkeypatch.setattr(
+        "tinkerloop.cli.write_report",
+        lambda results, *, output_dir, metadata=None, artifact_prefix="": captured.update(
+            {
+                "output_dir": output_dir,
+                "metadata": metadata,
+                "artifact_prefix": artifact_prefix,
+            }
+        )
+        or Path(output_dir) / f"{artifact_prefix}latest.json",
+    )
+
+    exit_code = main(
+        [
+            "confirm",
+            "--adapter",
+            "tests.fixtures.sample_adapter:create_adapter",
+            "--user-id",
+            "u1",
+            "--scenarios",
+            str(tmp_path),
+            "--report-dir",
+            str(tmp_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured["artifact_prefix"] == "confirm-"
+    assert captured["metadata"]["run_kind"] == "external_validation"
+
+
+def test_main_confirm_uses_prefixed_failed_from_reports(monkeypatch, tmp_path):
+    adapter = DummyAdapter(
+        resolved=RuntimeSpec(
+            provider="bedrock",
+            model="us.amazon.nova-pro-v1:0",
+            source="target_repo_defaults",
+            confidence="high",
+            reason="Resolved.",
+        )
+    )
+    captured = {}
+    monkeypatch.setattr("tinkerloop.cli.load_adapter", lambda _factory_path: adapter)
+    monkeypatch.setattr(
+        "tinkerloop.cli.load_scenarios",
+        lambda _path: [
+            Scenario(
+                scenario_id="cleanup_preview_first_unit",
+                description="demo",
+                turns=[ScenarioTurn(user="Preview the first cleanup unit")],
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "tinkerloop.cli.load_failed_scenario_ids",
+        lambda _path, *, artifact_prefix="": captured.update(
+            {"failed_from_prefix": artifact_prefix}
+        )
+        or ["cleanup_preview_first_unit"],
+    )
+    monkeypatch.setattr(
+        "tinkerloop.cli.run_scenario",
+        lambda scenario, *, adapter, user_id: ScenarioResult(
+            scenario_id=scenario.scenario_id,
+            description=scenario.description,
+            destructive=scenario.destructive,
+            user_id=user_id,
+            started_at=0,
+            duration_ms=0,
+            passed=True,
+            turns=[],
+        ),
+    )
+    monkeypatch.setattr(
+        "tinkerloop.cli.write_report",
+        lambda results, *, output_dir, metadata=None, artifact_prefix="": Path(output_dir)
+        / f"{artifact_prefix}latest.json",
+    )
+
+    exit_code = main(
+        [
+            "confirm",
+            "--adapter",
+            "tests.fixtures.sample_adapter:create_adapter",
+            "--user-id",
+            "u1",
+            "--scenarios",
+            str(tmp_path),
+            "--failed-from",
+            str(tmp_path),
+            "--report-dir",
+            str(tmp_path),
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured["failed_from_prefix"] == "confirm-"
+
+
+def test_main_non_interactive_disables_runtime_prompt(monkeypatch, tmp_path, capsys):
+    adapter = DummyAdapter(
+        candidates=[
+            RuntimeSpec(
+                provider="bedrock",
+                model="us.amazon.nova-pro-v1:0",
+                source="target_repo_defaults",
+                confidence="medium",
+                reason="Repo default.",
+            )
+        ]
+    )
+    monkeypatch.setattr("tinkerloop.cli.load_adapter", lambda _factory_path: adapter)
+    monkeypatch.setattr(
+        "tinkerloop.cli.load_scenarios",
+        lambda _path: [
+            Scenario(
+                scenario_id="cleanup_preview_first_unit",
+                description="demo",
+                turns=[ScenarioTurn(user="Preview the first cleanup unit")],
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "tinkerloop.cli.write_report",
+        lambda results, *, output_dir, metadata=None: Path(output_dir) / "latest.json",
+    )
+
+    exit_code = main(
+        [
+            "run",
+            "--adapter",
+            "tests.fixtures.sample_adapter:create_adapter",
+            "--user-id",
+            "u1",
+            "--scenarios",
+            str(tmp_path),
+            "--non-interactive",
+            "--report-dir",
+            str(tmp_path),
+        ]
+    )
+
+    assert exit_code == 2
+    assert "Choose one explicitly with --inner-provider/--inner-model." in capsys.readouterr().err
+
+
 def test_main_fails_when_no_scenarios_loaded(monkeypatch, tmp_path, capsys):
     adapter = DummyAdapter(
         resolved=RuntimeSpec(
@@ -626,7 +807,8 @@ def test_main_help_lists_run_command(capsys):
     assert exc.value.code == 0
     output = " ".join(capsys.readouterr().out.split())
     assert "run" in output
-    assert "Use `tinkerloop run ...` to execute scenarios." in output
+    assert "confirm" in output
+    assert "Use `tinkerloop run ...` for the repair loop or `tinkerloop confirm ...` for external validation." in output
 
 
 def test_main_rejects_flag_only_invocation(capsys):
@@ -643,4 +825,4 @@ def test_main_rejects_flag_only_invocation(capsys):
         )
 
     assert exc.value.code == 2
-    assert "Missing command `run`" in capsys.readouterr().err
+    assert "Missing command `run` or `confirm`." in capsys.readouterr().err

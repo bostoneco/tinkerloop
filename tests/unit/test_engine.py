@@ -501,6 +501,37 @@ def test_write_report_creates_latest_and_latest_failures(tmp_path):
     assert failure_payload["summary"]["failed_scenario_ids"] == ["cleanup_preview_first_unit"]
 
 
+def test_write_report_supports_prefixed_artifacts(tmp_path):
+    failed_result = run_scenario(
+        Scenario(
+            scenario_id="cleanup_preview_first_unit",
+            description="demo",
+            turns=[
+                ScenarioTurn(
+                    user="Preview the first cleanup unit",
+                    checks=[
+                        ScenarioCheck(type="assistant_contains_all", values=["missing substring"])
+                    ],
+                )
+            ],
+        ),
+        adapter=DummyAdapter(),
+        user_id="u1",
+    )
+
+    report_file = write_report(
+        [failed_result],
+        output_dir=tmp_path,
+        metadata={"adapter": {}, "run_kind": "external_validation"},
+        artifact_prefix="confirm-",
+    )
+
+    assert report_file.name.startswith("confirm-tinkerloop-")
+    assert (tmp_path / "confirm-latest.json").is_file()
+    assert (tmp_path / "confirm-latest-failures.json").is_file()
+    assert (tmp_path / "confirm-latest-diagnosis.json").is_file()
+
+
 def test_load_failed_scenario_ids_supports_report_directory(tmp_path):
     failed_result = run_scenario(
         Scenario(
@@ -521,6 +552,35 @@ def test_load_failed_scenario_ids_supports_report_directory(tmp_path):
     write_report([failed_result], output_dir=tmp_path, metadata={"adapter": {}})
 
     failed_ids = load_failed_scenario_ids(tmp_path)
+
+    assert failed_ids == ["cleanup_preview_first_unit"]
+
+
+def test_load_failed_scenario_ids_supports_prefixed_report_directory(tmp_path):
+    failed_result = run_scenario(
+        Scenario(
+            scenario_id="cleanup_preview_first_unit",
+            description="demo",
+            turns=[
+                ScenarioTurn(
+                    user="Preview the first cleanup unit",
+                    checks=[
+                        ScenarioCheck(type="assistant_contains_all", values=["missing substring"])
+                    ],
+                )
+            ],
+        ),
+        adapter=DummyAdapter(),
+        user_id="u1",
+    )
+    write_report(
+        [failed_result],
+        output_dir=tmp_path,
+        metadata={"adapter": {}, "run_kind": "external_validation"},
+        artifact_prefix="confirm-",
+    )
+
+    failed_ids = load_failed_scenario_ids(tmp_path, artifact_prefix="confirm-")
 
     assert failed_ids == ["cleanup_preview_first_unit"]
 
