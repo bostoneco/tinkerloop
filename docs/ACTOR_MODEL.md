@@ -63,6 +63,8 @@ Confirmation loop artifacts:
 Keep these separate.
 A green repair loop is provisional.
 A green confirmation loop is the stronger acceptance signal.
+`latest-diagnosis.json` now includes `confirmation_status` so coding models can
+see that gap directly.
 
 ## Agent Guidance
 
@@ -73,3 +75,4 @@ When using a coding tool such as Codex, Claude Code, or Copilot:
 - do not emulate the target orchestrator
 - prefer a target-owned wrapper command when available
 - use `--non-interactive` in unattended runs
+- treat a repair-loop warning about missing or stale confirmation as a real gap, not noise

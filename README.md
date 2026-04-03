@@ -185,10 +185,14 @@ Artifacts written on each run:
 - stable latest report: `latest.json`
 - stable failure summary: `latest-failures.json`
 - stable diagnosis payload: `latest-diagnosis.json`
+  includes `confirmation_status` for repair-loop vs confirmation-loop visibility
 - confirmation timestamped report: `confirm-tinkerloop-<timestamp>.json`
 - confirmation latest report: `confirm-latest.json`
 - confirmation failure summary: `confirm-latest-failures.json`
 - confirmation diagnosis payload: `confirm-latest-diagnosis.json`
+
+When a repair run passes without a fresh confirmation run, Tinkerloop prints a
+warning and marks the repair results as provisional.
 
 ## Docs Map
 

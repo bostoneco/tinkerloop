@@ -68,3 +68,17 @@ Checks:
 
 - point it at a report file or report directory
 - confirm the directory contains `latest-failures.json`, `latest.json`, or a timestamped report
+
+## Repair Run Passed But Still Looks Provisional
+
+Symptoms:
+
+- the CLI prints `Repair loop passed but confirmation is missing or stale`
+- the summary includes a `NOTE:` about confirmation
+- `latest-diagnosis.json` shows `confirmation_status` as `missing` or `stale`
+
+Checks:
+
+- run `tinkerloop confirm ...` against the intended target boundary
+- if the target repo has a more realistic runner or adapter, use that for `confirm`
+- do not treat the green repair run as final until confirmation passes

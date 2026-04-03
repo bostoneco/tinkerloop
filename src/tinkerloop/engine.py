@@ -461,7 +461,11 @@ def write_report(
     return report_file
 
 
-def summarize_results(results: list[ScenarioResult]) -> str:
+def summarize_results(
+    results: list[ScenarioResult],
+    *,
+    confirmation_status: str | None = None,
+) -> str:
     total = len(results)
     passed = sum(1 for result in results if result.passed)
     failed = total - passed
@@ -474,6 +478,10 @@ def summarize_results(results: list[ScenarioResult]) -> str:
                 continue
             failing = [check.detail for check in turn.checks if not check.passed]
             lines.append(f"  turn {index}: {', '.join(failing)}")
+    if failed == 0:
+        note = _confirmation_note(confirmation_status)
+        if note:
+            lines.append(note)
     return "\n".join(lines)
 
 
@@ -569,6 +577,7 @@ def build_diagnosis_artifact(
 ) -> dict[str, Any]:
     failures = _collect_failures(results)
     metadata = metadata or {}
+    confirmation_status = _confirmation_status_value(metadata.get("confirmation_status"))
     diagnosis_items = []
     for failure in failures:
         primary_symptoms: list[str] = []
@@ -602,9 +611,11 @@ def build_diagnosis_artifact(
         "schema_version": "tinkerloop.diagnosis.v1",
         "generated_at": int(time.time()),
         "metadata": metadata,
+        "confirmation_status": confirmation_status,
         "summary": {
             "failed_scenario_count": len(diagnosis_items),
             "failed_scenario_ids": failed_ids,
+            **({"confirmation_status": confirmation_status} if confirmation_status else {}),
             **_report_context(metadata),
         },
         "diagnosis_items": diagnosis_items,
@@ -649,6 +660,25 @@ def _excerpt(text: str, *, limit: int = 240) -> str:
     if len(normalized) <= limit:
         return normalized
     return normalized[: limit - 3] + "..."
+
+
+def _confirmation_status_value(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().lower()
+    if normalized in {"missing", "stale", "passing", "failing"}:
+        return normalized
+    return None
+
+
+def _confirmation_note(confirmation_status: str | None) -> str | None:
+    if confirmation_status == "missing":
+        return "NOTE: No confirmation run found. Repair results are provisional."
+    if confirmation_status == "stale":
+        return "NOTE: Confirmation run is stale. Repair results are provisional."
+    if confirmation_status == "failing":
+        return "NOTE: Latest confirmation run failed. Repair results are provisional."
+    return None
 
 
 def _report_context(metadata: dict[str, Any]) -> dict[str, Any]:
