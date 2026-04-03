@@ -15,6 +15,10 @@ A passing run means:
 - the observed tool path matched what the checks required
 - the adapter reported whatever run metadata it implements for that execution
 
+For `tinkerloop run`, a passing repair run is still provisional until the
+confirmation loop passes. Check `confirmation_status` in
+`latest-diagnosis.json`.
+
 ## What A Passing Run Does Not Mean
 
 A passing run does not prove:
@@ -23,6 +27,7 @@ A passing run does not prove:
 - safety outside the covered scenario set
 - cross-model comparability
 - production readiness
+- that the latest repair result has been confirmed against the real target agent
 
 ## Supported Deterministic Checks
 

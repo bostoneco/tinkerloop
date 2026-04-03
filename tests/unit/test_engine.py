@@ -17,6 +17,7 @@ from tinkerloop.engine import (
     run_scenario,
     run_scenarios,
     select_scenarios,
+    summarize_results,
     write_report,
 )
 from tinkerloop.models import Scenario, ScenarioCheck, ScenarioTurn, ToolTrace
@@ -651,11 +652,64 @@ def test_build_diagnosis_artifact_is_compact_and_actionable():
     )
 
     assert payload["schema_version"] == "tinkerloop.diagnosis.v1"
+    assert payload["confirmation_status"] is None
     assert payload["summary"]["failed_scenario_ids"] == ["cleanup_first_unit"]
     assert payload["summary"]["preflight_status"] == "ready"
     assert payload["diagnosis_items"][0]["scenario_id"] == "cleanup_first_unit"
     assert payload["diagnosis_items"][0]["turns"][0]["assistant_excerpt"]
     assert payload["rerun"]["scenario_ids"] == ["cleanup_first_unit"]
+
+
+def test_build_diagnosis_artifact_includes_confirmation_status():
+    failed_result = run_scenario(
+        Scenario(
+            scenario_id="cleanup_first_unit",
+            description="demo",
+            turns=[
+                ScenarioTurn(
+                    user="What should I clean first?",
+                    checks=[
+                        ScenarioCheck(type="assistant_contains_all", values=["missing substring"])
+                    ],
+                )
+            ],
+        ),
+        adapter=DummyAdapter(),
+        user_id="u1",
+    )
+
+    payload = build_diagnosis_artifact(
+        [failed_result],
+        metadata={
+            "adapter": {"name": "dummy"},
+            "preflight": {"status": "ready"},
+            "confirmation_status": "stale",
+        },
+    )
+
+    assert payload["confirmation_status"] == "stale"
+    assert payload["summary"]["confirmation_status"] == "stale"
+
+
+def test_summarize_results_notes_missing_confirmation_for_green_repair_run():
+    passed_result = run_scenario(
+        Scenario(
+            scenario_id="cleanup_preview_first_unit",
+            description="demo",
+            turns=[
+                ScenarioTurn(
+                    user="Preview the first cleanup unit",
+                    checks=[ScenarioCheck(type="assistant_contains_all", values=["Preview for"])],
+                )
+            ],
+        ),
+        adapter=DummyAdapter(),
+        user_id="u1",
+    )
+
+    summary = summarize_results([passed_result], confirmation_status="missing")
+
+    assert "NOTE: No confirmation run found. Repair results are provisional." in summary
 
 
 def test_run_scenarios_can_filter_by_tag():

@@ -59,6 +59,7 @@ Treat that as the stronger acceptance gate for claims about real agent behavior.
 - The outer coding model may patch code between runs, but it is not the system under test.
 - The inner target orchestrator must be the thing exercised during measured runs.
 - A green repair loop is provisional until the confirmation loop passes.
+- Treat a repair-loop warning about missing or stale confirmation as a required follow-up, not an informational extra.
 - Keep the inner runtime explicit in notes and reports whenever it matters to the result.
 - Do not compare runs taken against different runtime selections as if they were equivalent.
 - Do not treat a passing targeted rerun as sufficient if the change can affect unrelated scenarios.

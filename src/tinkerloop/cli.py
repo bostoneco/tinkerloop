@@ -224,6 +224,20 @@ def _write_error_report(
     return 2
 
 
+def _repair_confirmation_status(report_dir: str | Path) -> str:
+    confirm_latest = Path(report_dir) / "confirm-latest.json"
+    return "stale" if confirm_latest.is_file() else "missing"
+
+
+def _warn_if_confirmation_is_provisional(confirmation_status: str | None) -> None:
+    if confirmation_status not in {"missing", "stale"}:
+        return
+    print(
+        "Repair loop passed but confirmation is missing or stale. Results are provisional until tinkerloop confirm passes.",
+        file=sys.stderr,
+    )
+
+
 def _format_empty_selection_error(
     *,
     scenario_filter: set[str],
@@ -337,9 +351,11 @@ def _run_command(args: argparse.Namespace) -> int:
     command = str(args.command or "run")
     artifact_prefix = "confirm-" if command == "confirm" else ""
     run_kind = "external_validation" if command == "confirm" else "repair"
+    repair_confirmation_status = _repair_confirmation_status(args.report_dir)
     metadata: dict[str, object] = {
         "adapter_path": str(args.adapter),
         "run_kind": run_kind,
+        "confirmation_status": "failing" if command == "confirm" else repair_confirmation_status,
     }
     try:
         adapter = load_adapter(args.adapter)
@@ -456,13 +472,26 @@ def _run_command(args: argparse.Namespace) -> int:
         run_scenario(scenario, adapter=adapter, user_id=str(args.user_id))
         for scenario in selected_scenarios
     ]
+    all_passed = all(result.passed for result in results)
+    metadata["confirmation_status"] = (
+        "passing" if command == "confirm" and all_passed else
+        "failing" if command == "confirm" else
+        repair_confirmation_status
+    )
     write_kwargs = {"output_dir": args.report_dir, "metadata": metadata}
     if artifact_prefix:
         write_kwargs["artifact_prefix"] = artifact_prefix
     report_file = write_report(results, **write_kwargs)
-    print(summarize_results(results))
+    print(
+        summarize_results(
+            results,
+            confirmation_status=str(metadata.get("confirmation_status") or "").strip() or None,
+        )
+    )
     print(f"Report: {report_file}")
-    return 0 if all(result.passed for result in results) else 1
+    if command == "run" and all_passed:
+        _warn_if_confirmation_is_provisional(str(metadata.get("confirmation_status") or ""))
+    return 0 if all_passed else 1
 
 
 def main(argv: list[str] | None = None) -> int:

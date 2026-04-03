@@ -4,6 +4,15 @@ All notable changes to Tinkerloop should be recorded here.
 
 ## Unreleased
 
+## 0.1.4
+
+### Changed
+
+- repair-loop runs now warn when confirmation is missing or stale instead of silently looking final
+- diagnosis artifacts now expose `confirmation_status` so coding models can detect the gap directly
+- green repair summaries now mark results as provisional until confirmation passes
+- actor-model docs now treat missing or stale confirmation as a required follow-up
+
 ## 0.1.3
 
 ### Changed

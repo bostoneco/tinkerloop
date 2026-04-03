@@ -710,6 +710,130 @@ def test_main_non_interactive_disables_runtime_prompt(monkeypatch, tmp_path, cap
     assert "Choose one explicitly with --inner-provider/--inner-model." in capsys.readouterr().err
 
 
+def test_main_run_warns_when_confirmation_is_missing(monkeypatch, tmp_path, capsys):
+    adapter = DummyAdapter(
+        resolved=RuntimeSpec(
+            provider="bedrock",
+            model="us.amazon.nova-pro-v1:0",
+            source="target_repo_defaults",
+            confidence="high",
+            reason="Resolved.",
+        )
+    )
+    monkeypatch.setattr("tinkerloop.cli.load_adapter", lambda _factory_path: adapter)
+    monkeypatch.setattr(
+        "tinkerloop.cli.load_scenarios",
+        lambda _path: [
+            Scenario(
+                scenario_id="cleanup_preview_first_unit",
+                description="demo",
+                turns=[ScenarioTurn(user="Preview the first cleanup unit")],
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "tinkerloop.cli.run_scenario",
+        lambda scenario, *, adapter, user_id: ScenarioResult(
+            scenario_id=scenario.scenario_id,
+            description=scenario.description,
+            destructive=scenario.destructive,
+            user_id=user_id,
+            started_at=0,
+            duration_ms=0,
+            passed=True,
+            turns=[],
+        ),
+    )
+    monkeypatch.setattr(
+        "tinkerloop.cli.write_report",
+        lambda results, *, output_dir, metadata=None: Path(output_dir) / "latest.json",
+    )
+
+    exit_code = main(
+        [
+            "run",
+            "--adapter",
+            "tests.fixtures.sample_adapter:create_adapter",
+            "--user-id",
+            "u1",
+            "--scenarios",
+            str(tmp_path),
+            "--report-dir",
+            str(tmp_path),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "NOTE: No confirmation run found. Repair results are provisional." in captured.out
+    assert "Repair loop passed but confirmation is missing or stale." in captured.err
+
+
+def test_main_run_marks_confirmation_stale_when_confirm_artifact_exists(
+    monkeypatch, tmp_path, capsys
+):
+    adapter = DummyAdapter(
+        resolved=RuntimeSpec(
+            provider="bedrock",
+            model="us.amazon.nova-pro-v1:0",
+            source="target_repo_defaults",
+            confidence="high",
+            reason="Resolved.",
+        )
+    )
+    (tmp_path / "confirm-latest.json").write_text("{}", encoding="utf-8")
+    captured = {}
+    monkeypatch.setattr("tinkerloop.cli.load_adapter", lambda _factory_path: adapter)
+    monkeypatch.setattr(
+        "tinkerloop.cli.load_scenarios",
+        lambda _path: [
+            Scenario(
+                scenario_id="cleanup_preview_first_unit",
+                description="demo",
+                turns=[ScenarioTurn(user="Preview the first cleanup unit")],
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "tinkerloop.cli.run_scenario",
+        lambda scenario, *, adapter, user_id: ScenarioResult(
+            scenario_id=scenario.scenario_id,
+            description=scenario.description,
+            destructive=scenario.destructive,
+            user_id=user_id,
+            started_at=0,
+            duration_ms=0,
+            passed=True,
+            turns=[],
+        ),
+    )
+    monkeypatch.setattr(
+        "tinkerloop.cli.write_report",
+        lambda results, *, output_dir, metadata=None: captured.update({"metadata": metadata})
+        or Path(output_dir) / "latest.json",
+    )
+
+    exit_code = main(
+        [
+            "run",
+            "--adapter",
+            "tests.fixtures.sample_adapter:create_adapter",
+            "--user-id",
+            "u1",
+            "--scenarios",
+            str(tmp_path),
+            "--report-dir",
+            str(tmp_path),
+        ]
+    )
+
+    captured_output = capsys.readouterr()
+    assert exit_code == 0
+    assert captured["metadata"]["confirmation_status"] == "stale"
+    assert "NOTE: Confirmation run is stale. Repair results are provisional." in captured_output.out
+    assert "Repair loop passed but confirmation is missing or stale." in captured_output.err
+
+
 def test_main_fails_when_no_scenarios_loaded(monkeypatch, tmp_path, capsys):
     adapter = DummyAdapter(
         resolved=RuntimeSpec(
