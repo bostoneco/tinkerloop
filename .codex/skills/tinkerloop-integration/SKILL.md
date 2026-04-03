@@ -39,6 +39,7 @@ Every integration needs:
 - target-owned scenarios
 - a real user entrypoint
 - real tool trace capture
+- a run path that exercises the target orchestrator instead of the coding model's own tool loop
 
 Add these adapter methods when the target needs them:
 - `preflight()`
@@ -61,9 +62,12 @@ tinkerloop run \
 
 If the target repo wants a friendlier command, add a wrapper script in the target repo that resolves the Tinkerloop location through `TINKERLOOP_REPO` or a local install.
 
+For coding-agent workflows, prefer a target-owned wrapper command so the agent runs one bounded command instead of reinterpreting the harness.
+
 ## Integration rules
 
 - Keep auth checks, env names, business rules, deploy logic, and scenarios in the target repo.
 - Resolve runtime from the target repo boundary, not from machine-wide guesses.
 - Trace the real execution path; do not fake tool traces in the adapter.
+- Keep the outer coding model outside the measured target execution path.
 - Use the smallest working scaffold first, then add more scenarios.

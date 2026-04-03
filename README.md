@@ -28,6 +28,19 @@ Tinkerloop plays the role of:
 - deterministic judge
 - developer feedback loop driver
 
+## Actor Model
+
+There are two distinct roles in a Tinkerloop workflow:
+
+- inner target orchestrator:
+  the model and tool path inside the app under test
+- outer coding model:
+  the developer tool model using Tinkerloop artifacts to patch and rerun
+
+The outer coding model may analyze results and edit code between runs.
+It must not replace the inner target orchestrator during a measured run.
+See [`docs/ACTOR_MODEL.md`](docs/ACTOR_MODEL.md).
+
 ## Who It Is For
 
 - teams that already have a target app and want deterministic scenario-based regression loops
@@ -52,6 +65,7 @@ Current MVP:
 - evaluate deterministic checks
 - write JSON reports for failures and regressions
 - rerun only failed scenarios from report artifacts
+- separate repair-loop and confirmation-loop runs
 
 Not in scope yet:
 - automatic patch generation
@@ -62,18 +76,18 @@ Not in scope yet:
 
 ## Quick Start
 
-Tinkerloop requires **Python 3.12+**. This repo pins `3.12.9` in [`.python-version`](.python-version) for `pyenv`.
+Tinkerloop supports **Python 3.10+**. This repo pins `3.12.9` in [`.python-version`](.python-version) for local development with `pyenv`.
 
 The PyPI distribution name is `tinkerloop-ai`. Install it with:
 
 ```bash
-python3.12 -m pip install tinkerloop-ai
+python3 -m pip install tinkerloop-ai
 ```
 
 If you need to install directly from a GitHub release asset instead:
 
 ```bash
-python3.12 -m pip install https://github.com/bostoneco/tinkerloop/releases/download/<tag>/tinkerloop_ai-<version>-py3-none-any.whl
+python3 -m pip install https://github.com/bostoneco/tinkerloop/releases/download/<tag>/tinkerloop_ai-<version>-py3-none-any.whl
 ```
 
 Then run it against a target-owned adapter and scenario directory:
@@ -85,6 +99,20 @@ tinkerloop \
   --user-id <user-id> \
   --scenarios /path/to/scenarios
 ```
+
+When a candidate fix looks good, run the external confirmation loop:
+
+```bash
+tinkerloop \
+  confirm \
+  --adapter /path/to/target_adapter.py:create_adapter \
+  --user-id <user-id> \
+  --scenarios /path/to/scenarios \
+  --non-interactive
+```
+
+If your target repo exposes a more realistic runner or adapter for real-agent validation,
+use that boundary for `confirm` instead of the faster repair-loop boundary.
 
 For local development from a source checkout:
 
@@ -157,10 +185,15 @@ Artifacts written on each run:
 - stable latest report: `latest.json`
 - stable failure summary: `latest-failures.json`
 - stable diagnosis payload: `latest-diagnosis.json`
+- confirmation timestamped report: `confirm-tinkerloop-<timestamp>.json`
+- confirmation latest report: `confirm-latest.json`
+- confirmation failure summary: `confirm-latest-failures.json`
+- confirmation diagnosis payload: `confirm-latest-diagnosis.json`
 
 ## Docs Map
 
 - [`docs/STABILITY.md`](docs/STABILITY.md): supported `v0.x` surface and experimental boundaries
+- [`docs/ACTOR_MODEL.md`](docs/ACTOR_MODEL.md): inner target orchestrator vs outer coding model roles
 - [`docs/QUICKSTART_TARGET_REPO.md`](docs/QUICKSTART_TARGET_REPO.md): minimal target-owned integration path
 - [`docs/ADAPTER_GUIDE.md`](docs/ADAPTER_GUIDE.md): when to use `PythonAppAdapter` vs `CommandAppAdapter`
 - [`docs/TRUST_MODEL.md`](docs/TRUST_MODEL.md): what a pass/fail result does and does not mean
@@ -171,7 +204,8 @@ Artifacts written on each run:
 
 ## Support Matrix
 
-- Python: `3.12`
+- Python: `3.10+`
+- Commands: `run`, `confirm`
 - Adapter shapes: `PythonAppAdapter`, `CommandAppAdapter`
 - Report schemas: `tinkerloop.report.v1`, `tinkerloop.failures.v1`, `tinkerloop.diagnosis.v1`
 - Check types: `assistant_contains_all`, `assistant_contains_any`, `assistant_not_contains`, `tool_used`, `tool_call_count_at_most`, `tool_call_matches`

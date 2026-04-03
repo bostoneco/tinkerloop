@@ -1,0 +1,1 @@
+"""Bundled starter target example."""

@@ -7,7 +7,7 @@ from tinkerloop.models import RuntimeSpec
 
 def test_demo_app_example_passes():
     repo_root = Path(__file__).resolve().parents[2]
-    adapter = load_adapter("examples.demo_app.adapter:create_adapter")
+    adapter = load_adapter(f"{repo_root / 'examples/demo_app/adapter.py'}:create_adapter")
     scenarios = load_scenarios(repo_root / "examples/demo_app/scenarios")
 
     results = run_scenarios(scenarios, adapter=adapter, user_id="demo-user")
@@ -17,7 +17,8 @@ def test_demo_app_example_passes():
 
 
 def test_demo_app_adapter_exposes_fixed_runtime():
-    adapter = load_adapter("examples.demo_app.adapter:create_adapter")
+    repo_root = Path(__file__).resolve().parents[2]
+    adapter = load_adapter(f"{repo_root / 'examples/demo_app/adapter.py'}:create_adapter")
 
     runtime = adapter.runtime_spec(user_id="demo-user")
 

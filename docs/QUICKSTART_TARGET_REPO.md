@@ -4,18 +4,18 @@ This is the shortest path from zero to a working target-owned integration.
 
 ## 1. Install Tinkerloop
 
-Tinkerloop requires **Python 3.12+**. If you are working from a source checkout of this repo, use the pinned `3.12.9` from [`.python-version`](../.python-version).
+Tinkerloop supports **Python 3.10+**. If you are working from a source checkout of this repo, use the pinned `3.12.9` from [`.python-version`](../.python-version).
 
 When the PyPI release is available:
 
 ```bash
-python3.12 -m pip install tinkerloop-ai
+python3 -m pip install tinkerloop-ai
 ```
 
 Before that, install from a wheel release:
 
 ```bash
-python3.12 -m pip install /path/to/tinkerloop-<version>-py3-none-any.whl
+python3 -m pip install /path/to/tinkerloop_ai-<version>-py3-none-any.whl
 ```
 
 For local development:
@@ -81,6 +81,26 @@ Treat these as primary evidence:
 - `latest.json`
 - `latest-failures.json`
 - `latest-diagnosis.json`
+
+When the repair loop passes, run the confirmation loop:
+
+```bash
+tinkerloop \
+  confirm \
+  --adapter /path/to/target_adapter.py:create_adapter \
+  --user-id demo-user \
+  --scenarios /path/to/scenarios \
+  --non-interactive
+```
+
+If the target repo has a more realistic runner or adapter for real-agent validation,
+use that boundary for `confirm`.
+
+That writes:
+
+- `confirm-latest.json`
+- `confirm-latest-failures.json`
+- `confirm-latest-diagnosis.json`
 
 ## 7. Grow Carefully
 

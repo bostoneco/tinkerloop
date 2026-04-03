@@ -35,6 +35,9 @@ Treat these as the primary evidence for a run:
 - `latest.json`
 - `latest-failures.json`
 - `latest-diagnosis.json`
+- `confirm-latest.json`
+- `confirm-latest-failures.json`
+- `confirm-latest-diagnosis.json`
 
 4. Patch one bounded cause at a time.
 Do not mix unrelated fixes in the same iteration.
@@ -47,8 +50,15 @@ Then use `--failed-from` to validate the failed set from report artifacts.
 6. End with a broader regression pass.
 Once targeted failures clear, rerun the broader tagged slice or full scenario set before considering the loop complete.
 
+7. End with an external confirmation pass when the real target agent matters.
+After the repair loop is green, run `tinkerloop confirm ...` against the same target boundary.
+Treat that as the stronger acceptance gate for claims about real agent behavior.
+
 ## Run Discipline
 
+- The outer coding model may patch code between runs, but it is not the system under test.
+- The inner target orchestrator must be the thing exercised during measured runs.
+- A green repair loop is provisional until the confirmation loop passes.
 - Keep the inner runtime explicit in notes and reports whenever it matters to the result.
 - Do not compare runs taken against different runtime selections as if they were equivalent.
 - Do not treat a passing targeted rerun as sufficient if the change can affect unrelated scenarios.
@@ -95,6 +105,7 @@ A loop is only complete when:
 - the targeted rerun passes
 - the failed set passes when rerun from artifacts
 - the broader regression scope appropriate to the change also passes
+- the confirmation loop passes when the target app requires real-agent validation
 
 ## Anti-Patterns
 
@@ -127,6 +138,17 @@ tinkerloop \
   --user-id <user-id> \
   --scenarios <scenario-dir> \
   --failed-from artifacts/reports
+```
+
+External confirmation:
+
+```bash
+tinkerloop \
+  confirm \
+  --adapter <adapter-factory> \
+  --user-id <user-id> \
+  --scenarios <scenario-dir> \
+  --non-interactive
 ```
 
 Use these as the standard validation spine unless the target app needs a more specific workflow.
