@@ -4,6 +4,12 @@ All notable changes to Tinkerloop should be recorded here.
 
 ## Unreleased
 
+## 0.1.7
+
+### Changed
+
+- switched the README logo to an absolute GitHub raw URL so the image can render on PyPI project pages
+
 ## 0.1.6
 
 ### Changed
