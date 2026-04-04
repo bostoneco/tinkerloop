@@ -4,6 +4,15 @@ All notable changes to Tinkerloop should be recorded here.
 
 ## Unreleased
 
+## 0.1.6
+
+### Changed
+
+- refined the public positioning around improving AI agents and rewrote the README around practical scenario-driven usage
+- aligned the package docstring and PyPI-facing metadata with the current agent-improvement framing
+- preserved richer confirmation status on repair runs, made timestamped reports collision-safe, and simplified CLI execution flow through shared engine helpers
+- removed duplicate wheel-smoke workflow logic in favor of a shared smoke script used by CI and release publishing
+
 ## 0.1.5
 
 ### Changed
