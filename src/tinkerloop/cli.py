@@ -225,12 +225,23 @@ def _write_error_report(
 
 
 def _repair_confirmation_status(report_dir: str | Path) -> str:
-    confirm_latest = Path(report_dir) / "confirm-latest.json"
+    report_path = Path(report_dir)
+    confirm_latest = report_path / "confirm-latest.json"
+    confirm_diagnosis = report_path / "confirm-latest-diagnosis.json"
+    if confirm_diagnosis.is_file():
+        try:
+            payload = json.loads(confirm_diagnosis.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return "stale" if confirm_latest.is_file() else "missing"
+        status = str(payload.get("confirmation_status") or "").strip().lower()
+        if status in {"blocked", "failing"}:
+            return status
+        return "stale"
     return "stale" if confirm_latest.is_file() else "missing"
 
 
 def _warn_if_confirmation_is_provisional(confirmation_status: str | None) -> None:
-    if confirmation_status not in {"missing", "stale"}:
+    if confirmation_status not in {"missing", "stale", "failing", "blocked"}:
         return
     print(
         "Repair loop passed. Run tinkerloop confirm to validate with the real inner model. Without confirmation, these results do not prove agent quality.",

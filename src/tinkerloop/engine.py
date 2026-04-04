@@ -440,7 +440,7 @@ def write_report(
 ) -> Path:
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-    filename = f"{artifact_prefix}tinkerloop-{int(time.time())}.json"
+    filename = f"{artifact_prefix}tinkerloop-{time.time_ns()}.json"
     report_file = output_path / filename
     payload = build_report_payload(results, metadata=metadata)
     with open(report_file, "w", encoding="utf-8") as f:
