@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/tinkerloop-logo.png" alt="Tinkerloop" width="200">
+</p>
+
 # Tinkerloop
 
 AI agents fail in ways unit tests can't catch — wrong tool calls, hallucinated answers, broken multi-turn flows. Tinkerloop is a scenario-based testing harness that replays conversations against your agent, runs deterministic checks on every response and tool call, and gives you a clear diagnosis when something breaks.
