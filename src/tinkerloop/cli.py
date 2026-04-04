@@ -13,8 +13,7 @@ from tinkerloop.adapters.base import AppAdapter
 from tinkerloop.engine import (
     load_failed_scenario_ids,
     load_scenarios,
-    run_scenario,
-    select_scenarios,
+    run_scenarios,
     summarize_results,
     write_report,
 )
@@ -251,10 +250,13 @@ def _warn_if_confirmation_is_provisional(confirmation_status: str | None) -> Non
 
 def _format_empty_selection_error(
     *,
+    loaded_scenario_count: int,
     scenario_filter: set[str],
     tag_filter: set[str],
     allow_destructive: bool,
 ) -> str:
+    if loaded_scenario_count == 0:
+        return "No scenarios were selected to run."
     details: list[str] = []
     if scenario_filter:
         details.append(f"scenario ids={sorted(scenario_filter)}")
@@ -455,26 +457,21 @@ def _run_command(args: argparse.Namespace) -> int:
         metadata["tag_filter"] = sorted(tag_filter)
     metadata["loaded_scenario_count"] = len(scenarios)
     metadata["scenario_filter"] = sorted(scenario_filter)
-    if not scenarios:
-        return _write_error_report(
-            report_dir=args.report_dir,
-            metadata=metadata,
-            message="No scenarios were selected to run.",
-            metadata_key="scenario_error",
-            artifact_prefix=artifact_prefix,
-        )
-    selected_scenarios = select_scenarios(
+    results = run_scenarios(
         scenarios,
+        adapter=adapter,
+        user_id=str(args.user_id),
         allow_destructive=bool(args.allow_destructive),
         scenario_filter=scenario_filter or None,
         tag_filter=tag_filter or None,
     )
-    metadata["selected_scenario_count"] = len(selected_scenarios)
-    if not selected_scenarios:
+    metadata["selected_scenario_count"] = len(results)
+    if not results:
         return _write_error_report(
             report_dir=args.report_dir,
             metadata=metadata,
             message=_format_empty_selection_error(
+                loaded_scenario_count=len(scenarios),
                 scenario_filter=scenario_filter,
                 tag_filter=tag_filter,
                 allow_destructive=bool(args.allow_destructive),
@@ -482,10 +479,6 @@ def _run_command(args: argparse.Namespace) -> int:
             metadata_key="scenario_error",
             artifact_prefix=artifact_prefix,
         )
-    results = [
-        run_scenario(scenario, adapter=adapter, user_id=str(args.user_id))
-        for scenario in selected_scenarios
-    ]
     all_passed = all(result.passed for result in results)
     metadata["confirmation_status"] = (
         "passing" if command == "confirm" and all_passed else

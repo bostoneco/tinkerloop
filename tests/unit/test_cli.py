@@ -37,6 +37,31 @@ class DummyAdapter(AppAdapter):
         return PreflightResult(status="ready", summary="ready")
 
 
+def _passing_results(
+    scenarios: list[Scenario],
+    *,
+    user_id: str,
+    capture=None,
+) -> list[ScenarioResult]:
+    results: list[ScenarioResult] = []
+    for scenario in scenarios:
+        if capture is not None:
+            capture(scenario)
+        results.append(
+            ScenarioResult(
+                scenario_id=scenario.scenario_id,
+                description=scenario.description,
+                destructive=scenario.destructive,
+                user_id=user_id,
+                started_at=0,
+                duration_ms=0,
+                passed=True,
+                turns=[],
+            )
+        )
+    return results
+
+
 def test_resolve_runtime_selection_uses_resolved_spec():
     adapter = DummyAdapter(
         resolved=RuntimeSpec(
@@ -364,19 +389,17 @@ def test_main_uses_failed_from_to_filter_scenarios(monkeypatch, tmp_path):
         lambda _path: ["cleanup_preview_first_unit"],
     )
     monkeypatch.setattr(
-        "tinkerloop.cli.run_scenario",
-        lambda scenario, *, adapter, user_id: captured.setdefault("scenario_ids", []).append(
-            scenario.scenario_id
-        )
-        or ScenarioResult(
-            scenario_id=scenario.scenario_id,
-            description=scenario.description,
-            destructive=scenario.destructive,
+        "tinkerloop.cli.run_scenarios",
+        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: _passing_results(
+            [
+                scenario
+                for scenario in scenarios
+                if not scenario_filter or scenario.scenario_id in scenario_filter
+            ],
             user_id=user_id,
-            started_at=0,
-            duration_ms=0,
-            passed=True,
-            turns=[],
+            capture=lambda scenario: captured.setdefault("scenario_ids", []).append(
+                scenario.scenario_id
+            ),
         ),
     )
     monkeypatch.setattr(
@@ -427,19 +450,17 @@ def test_main_passes_tag_filter(monkeypatch, tmp_path):
         ],
     )
     monkeypatch.setattr(
-        "tinkerloop.cli.run_scenario",
-        lambda scenario, *, adapter, user_id: captured.setdefault("scenario_ids", []).append(
-            scenario.scenario_id
-        )
-        or ScenarioResult(
-            scenario_id=scenario.scenario_id,
-            description=scenario.description,
-            destructive=scenario.destructive,
+        "tinkerloop.cli.run_scenarios",
+        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: _passing_results(
+            [
+                scenario
+                for scenario in scenarios
+                if not tag_filter or tag_filter.intersection(set(scenario.tags))
+            ],
             user_id=user_id,
-            started_at=0,
-            duration_ms=0,
-            passed=True,
-            turns=[],
+            capture=lambda scenario: captured.setdefault("scenario_ids", []).append(
+                scenario.scenario_id
+            ),
         ),
     )
     monkeypatch.setattr(
@@ -491,19 +512,13 @@ def test_main_accepts_run_subcommand(monkeypatch, tmp_path):
         ],
     )
     monkeypatch.setattr(
-        "tinkerloop.cli.run_scenario",
-        lambda scenario, *, adapter, user_id: captured.update(
-            {"user_id": user_id, "scenario_id": scenario.scenario_id}
-        )
-        or ScenarioResult(
-            scenario_id=scenario.scenario_id,
-            description=scenario.description,
-            destructive=scenario.destructive,
+        "tinkerloop.cli.run_scenarios",
+        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: _passing_results(
+            scenarios,
             user_id=user_id,
-            started_at=0,
-            duration_ms=0,
-            passed=True,
-            turns=[],
+            capture=lambda scenario: captured.update(
+                {"user_id": user_id, "scenario_id": scenario.scenario_id}
+            ),
         ),
     )
     monkeypatch.setattr(
@@ -553,16 +568,10 @@ def test_main_accepts_confirm_subcommand_and_writes_prefixed_artifacts(monkeypat
         ],
     )
     monkeypatch.setattr(
-        "tinkerloop.cli.run_scenario",
-        lambda scenario, *, adapter, user_id: ScenarioResult(
-            scenario_id=scenario.scenario_id,
-            description=scenario.description,
-            destructive=scenario.destructive,
+        "tinkerloop.cli.run_scenarios",
+        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: _passing_results(
+            scenarios,
             user_id=user_id,
-            started_at=0,
-            duration_ms=0,
-            passed=True,
-            turns=[],
         ),
     )
     monkeypatch.setattr(
@@ -626,16 +635,14 @@ def test_main_confirm_uses_prefixed_failed_from_reports(monkeypatch, tmp_path):
         or ["cleanup_preview_first_unit"],
     )
     monkeypatch.setattr(
-        "tinkerloop.cli.run_scenario",
-        lambda scenario, *, adapter, user_id: ScenarioResult(
-            scenario_id=scenario.scenario_id,
-            description=scenario.description,
-            destructive=scenario.destructive,
+        "tinkerloop.cli.run_scenarios",
+        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: _passing_results(
+            [
+                scenario
+                for scenario in scenarios
+                if not scenario_filter or scenario.scenario_id in scenario_filter
+            ],
             user_id=user_id,
-            started_at=0,
-            duration_ms=0,
-            passed=True,
-            turns=[],
         ),
     )
     monkeypatch.setattr(
@@ -770,16 +777,10 @@ def test_main_run_warns_when_confirmation_is_missing(monkeypatch, tmp_path, caps
         ],
     )
     monkeypatch.setattr(
-        "tinkerloop.cli.run_scenario",
-        lambda scenario, *, adapter, user_id: ScenarioResult(
-            scenario_id=scenario.scenario_id,
-            description=scenario.description,
-            destructive=scenario.destructive,
+        "tinkerloop.cli.run_scenarios",
+        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: _passing_results(
+            scenarios,
             user_id=user_id,
-            started_at=0,
-            duration_ms=0,
-            passed=True,
-            turns=[],
         ),
     )
     monkeypatch.setattr(
@@ -839,16 +840,10 @@ def test_main_run_marks_confirmation_stale_when_confirm_artifact_exists(
         ],
     )
     monkeypatch.setattr(
-        "tinkerloop.cli.run_scenario",
-        lambda scenario, *, adapter, user_id: ScenarioResult(
-            scenario_id=scenario.scenario_id,
-            description=scenario.description,
-            destructive=scenario.destructive,
+        "tinkerloop.cli.run_scenarios",
+        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: _passing_results(
+            scenarios,
             user_id=user_id,
-            started_at=0,
-            duration_ms=0,
-            passed=True,
-            turns=[],
         ),
     )
     monkeypatch.setattr(
@@ -914,16 +909,10 @@ def test_main_run_surfaces_blocked_confirmation_status_from_latest_confirm_attem
         ],
     )
     monkeypatch.setattr(
-        "tinkerloop.cli.run_scenario",
-        lambda scenario, *, adapter, user_id: ScenarioResult(
-            scenario_id=scenario.scenario_id,
-            description=scenario.description,
-            destructive=scenario.destructive,
+        "tinkerloop.cli.run_scenarios",
+        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: _passing_results(
+            scenarios,
             user_id=user_id,
-            started_at=0,
-            duration_ms=0,
-            passed=True,
-            turns=[],
         ),
     )
     monkeypatch.setattr(
