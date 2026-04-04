@@ -59,6 +59,7 @@ class ToolTrace:
     status: str | None
     user_safe_summary: str | None
     raw_result: dict[str, Any] | str
+    """Parsed JSON dict when the tool returned valid JSON, otherwise the raw string."""
 
 
 @dataclass
