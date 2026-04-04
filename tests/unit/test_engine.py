@@ -533,6 +533,34 @@ def test_write_report_supports_prefixed_artifacts(tmp_path):
     assert (tmp_path / "confirm-latest-diagnosis.json").is_file()
 
 
+def test_write_report_uses_unique_filenames_within_same_second(monkeypatch, tmp_path):
+    failed_result = run_scenario(
+        Scenario(
+            scenario_id="cleanup_preview_first_unit",
+            description="demo",
+            turns=[
+                ScenarioTurn(
+                    user="Preview the first cleanup unit",
+                    checks=[
+                        ScenarioCheck(type="assistant_contains_all", values=["missing substring"])
+                    ],
+                )
+            ],
+        ),
+        adapter=DummyAdapter(),
+        user_id="u1",
+    )
+    time_ns_values = iter([1_700_000_000_000_000_001, 1_700_000_000_000_000_002])
+    monkeypatch.setattr("tinkerloop.engine.time.time_ns", lambda: next(time_ns_values))
+
+    first = write_report([failed_result], output_dir=tmp_path, metadata={"adapter": {}})
+    second = write_report([failed_result], output_dir=tmp_path, metadata={"adapter": {}})
+
+    assert first != second
+    assert first.is_file()
+    assert second.is_file()
+
+
 def test_load_failed_scenario_ids_supports_report_directory(tmp_path):
     failed_result = run_scenario(
         Scenario(

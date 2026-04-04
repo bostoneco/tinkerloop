@@ -76,7 +76,7 @@ Symptoms:
 - `tinkerloop run` exits with code `3`
 - the CLI prints `Repair loop passed. Run tinkerloop confirm to validate with the real inner model. Without confirmation, these results do not prove agent quality.`
 - the summary includes a `NOTE:` about confirmation
-- `latest-diagnosis.json` shows `confirmation_status` as `missing` or `stale`
+- `latest-diagnosis.json` shows `confirmation_status` as `missing`, `stale`, `blocked`, or `failing`
 
 Checks:
 

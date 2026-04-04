@@ -188,7 +188,8 @@ Artifacts written on each run:
 - stable latest report: `latest.json`
 - stable failure summary: `latest-failures.json`
 - stable diagnosis payload: `latest-diagnosis.json`
-  includes `confirmation_status` for repair-loop vs confirmation-loop visibility
+  includes `confirmation_status` for repair-loop vs confirmation-loop visibility,
+  including blocked or failed prior confirmation attempts
 - confirmation timestamped report: `confirm-tinkerloop-<timestamp>.json`
 - confirmation latest report: `confirm-latest.json`
 - confirmation failure summary: `confirm-latest-failures.json`
