@@ -11,6 +11,7 @@ from pathlib import Path
 from tinkerloop.__about__ import __version__
 from tinkerloop.adapters.base import AppAdapter
 from tinkerloop.engine import (
+    _CONFIRMATION_NEEDS_RUN,
     load_failed_scenario_ids,
     load_scenarios,
     run_scenarios,
@@ -18,10 +19,6 @@ from tinkerloop.engine import (
     write_report,
 )
 from tinkerloop.models import RuntimeSpec
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 
 def load_adapter(factory_path: str):
@@ -242,10 +239,8 @@ def _repair_confirmation_status(report_dir: str | Path) -> str:
 def _warn_if_confirmation_is_provisional(confirmation_status: str | None) -> None:
     if confirmation_status not in {"missing", "stale", "failing", "blocked"}:
         return
-    print(
-        "Repair loop passed. Run tinkerloop confirm to validate with the real inner model. Without confirmation, these results do not prove agent quality.",
-        file=sys.stderr,
-    )
+    msg = _CONFIRMATION_NEEDS_RUN.removeprefix("NOTE: ")
+    print(msg, file=sys.stderr)
 
 
 def _format_empty_selection_error(

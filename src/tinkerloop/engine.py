@@ -58,7 +58,7 @@ def load_scenarios(path: str | Path) -> list[Scenario]:
     return scenarios
 
 
-def select_scenarios(
+def _select_scenarios(
     scenarios: list[Scenario],
     *,
     allow_destructive: bool = False,
@@ -87,7 +87,7 @@ def run_scenarios(
     tag_filter: set[str] | None = None,
 ) -> list[ScenarioResult]:
     results: list[ScenarioResult] = []
-    for scenario in select_scenarios(
+    for scenario in _select_scenarios(
         scenarios,
         allow_destructive=allow_destructive,
         scenario_filter=scenario_filter,
@@ -290,7 +290,7 @@ def _parse_scenario_payload(payload: Any, *, source: Path) -> Scenario:
     if not isinstance(raw_tags, list):
         raise ScenarioDefinitionError(f"Scenario `{scenario_id}` must define `tags` as a list.")
 
-    scenario = Scenario(
+    return Scenario(
         scenario_id=scenario_id,
         description=str(payload.get("description") or scenario_id),
         turns=[
@@ -300,8 +300,6 @@ def _parse_scenario_payload(payload: Any, *, source: Path) -> Scenario:
         destructive=bool(payload.get("destructive", False)),
         tags=[str(tag).strip() for tag in raw_tags if str(tag).strip()],
     )
-    _validate_scenario(scenario)
-    return scenario
 
 
 def _parse_turn_payload(payload: Any, *, scenario_id: str, turn_index: int) -> ScenarioTurn:
@@ -671,11 +669,15 @@ def _confirmation_status_value(value: Any) -> str | None:
     return None
 
 
+_CONFIRMATION_NEEDS_RUN = (
+    "NOTE: Repair loop passed. Run tinkerloop confirm to validate with the real inner model. "
+    "Without confirmation, these results do not prove agent quality."
+)
+
+
 def _confirmation_note(confirmation_status: str | None) -> str | None:
-    if confirmation_status == "missing":
-        return "NOTE: Repair loop passed. Run tinkerloop confirm to validate with the real inner model. Without confirmation, these results do not prove agent quality."
-    if confirmation_status == "stale":
-        return "NOTE: Repair loop passed. Run tinkerloop confirm to validate with the real inner model. Without confirmation, these results do not prove agent quality."
+    if confirmation_status in {"missing", "stale"}:
+        return _CONFIRMATION_NEEDS_RUN
     if confirmation_status == "failing":
         return "NOTE: Latest confirmation run failed. Repair results are provisional."
     if confirmation_status == "blocked":

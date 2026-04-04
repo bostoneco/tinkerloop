@@ -16,7 +16,7 @@ from tinkerloop.engine import (
     load_scenarios,
     run_scenario,
     run_scenarios,
-    select_scenarios,
+    _select_scenarios,
     summarize_results,
     write_report,
 )
@@ -262,7 +262,7 @@ def test_select_scenarios_applies_filters():
         ),
     ]
 
-    selected = select_scenarios(
+    selected = _select_scenarios(
         scenarios,
         allow_destructive=False,
         scenario_filter={"cleanup_preview_first_unit", "destructive_cleanup"},
