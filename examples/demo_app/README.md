@@ -11,5 +11,14 @@ tinkerloop run \
   --scenarios examples/demo_app/scenarios
 ```
 
+Expect exit code `3` when the repair loop passes. Then confirm it:
+
+```bash
+tinkerloop confirm \
+  --adapter examples/demo_app/adapter.py:create_adapter \
+  --user-id demo-user \
+  --scenarios examples/demo_app/scenarios
+```
+
 This example exists only to demonstrate the public integration contract.
 Real target apps should own their adapter, scenarios, and target-specific logic in their own repo.
