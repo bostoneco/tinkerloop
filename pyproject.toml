@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "tinkerloop-ai"
 dynamic = ["version"]
-description = "Eval-driven test/fix/improve harness for orchestrator-based apps"
+description = "Scenario-based harness for improving AI agents through repair and confirmation loops"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"

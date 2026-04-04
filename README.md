@@ -1,8 +1,8 @@
 # Tinkerloop
 
-Tinkerloop to the rescue. If your orchestrator-to-MCP app communication is hard to trust, Tinkerloop gives you a scenario-based loop to reproduce the failure, diagnose it with deterministic checks, patch the target, and rerun until the behavior matches what you expect.
+Tinkerloop helps you improve AI agents with a scenario-based loop: reproduce the failure, diagnose it with deterministic checks, patch the target, and rerun until the behavior matches what you expect.
 
-It is an eval-driven harness for testing and improving orchestrator-based apps through repeatable `test -> diagnose -> patch -> rerun` loops.
+It is a scenario-based harness for improving AI agents through repeatable repair and confirmation loops.
 
 ## Release Status
 
@@ -16,7 +16,7 @@ Tinkerloop is in **alpha**.
 ## What It Is
 
 Tinkerloop is not another app-specific bot framework.
-It is a reusable outer loop for systems that already have:
+It is a reusable outer loop for AI agent systems that already have:
 - an inner orchestrator model
 - tool or MCP integrations
 - a conversational or API-facing entrypoint
