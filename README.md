@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/tinkerloop-logo.png" alt="Tinkerloop" width="200">
+  <img src="https://raw.githubusercontent.com/bostoneco/tinkerloop/main/docs/assets/tinkerloop-logo.png" alt="Tinkerloop" width="200">
 </p>
 
 # Tinkerloop
