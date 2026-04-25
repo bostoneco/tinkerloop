@@ -4,6 +4,15 @@ All notable changes to Tinkerloop should be recorded here.
 
 ## Unreleased
 
+### Changed
+
+- documentation steady-state pass: retired the roadmap-shaped planning docs (`docs/IMPLEMENTATION_PLAN.md`, `docs/MVP_PLAN.md`) and folded the still-load-bearing invariants and runtime-inspection rules into `docs/ARCHITECTURE.md` as a "Hard Boundaries" section
+- clarified exit-code `3` and confirmation-required language across README, QUICKSTART, and the orchestrator-model doc so the repair-vs-confirm gate reads the same in every place a user encounters it
+- renamed `docs/ACTOR_MODEL.md` to `docs/ORCHESTRATOR_MODEL.md` (and aligned dependent headings) to match the "inner target orchestrator / outer coding model" terminology already used in body content
+- removed the duplicated "Security Direction" section from `docs/ARCHITECTURE.md`; `SECURITY.md` is the single canonical home for security posture and the long-term remote-driver direction
+- added Project Charter, Architecture, and Working Agreement to the README docs list so the front-door catalog matches the actual doc set
+- dropped the dated "Smoke Reproducibility Note" from `docs/TRUST_MODEL.md`; stale ground-truth in a trust doc trains readers to ignore freshness signals everywhere
+
 ## 0.1.7
 
 ### Changed
