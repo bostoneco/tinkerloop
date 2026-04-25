@@ -44,7 +44,11 @@ Tinkerloop supports two explicit run intents:
 
 Use `run` to iterate quickly.
 Use `confirm` to validate that the real target agent can still operate after the fix.
-That is strongest when the confirmation run points at a more realistic target-owned runner or adapter boundary.
+Confirmation is required to claim a loop is complete; a green repair loop is not a
+final pass on its own.
+The confirmation signal is strongest when it points at a more realistic target-owned
+runner or adapter boundary, but a confirmation pass against the same adapter still
+gates the result.
 
 ## Artifact Separation
 

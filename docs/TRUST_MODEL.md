@@ -78,18 +78,3 @@ Failures are uncertain when:
 In uncertain cases, fix adapter/runtime fidelity first.
 Blocked confirmation attempts still write `confirm-latest-diagnosis.json` with
 `confirmation_status: "blocked"` and the preflight error.
-
-## Smoke Reproducibility Note
-
-Alpha smoke runs on March 14, 2026 used the bundled demo target,
-the same scenario directory, and the same fixed example runtime
-(`provider=example`, `model=demo-app`).
-
-| Run | Scenario total | Passed | Failed |
-| --- | --- | --- | --- |
-| 1 | 2 | 2 | 0 |
-| 2 | 2 | 2 | 0 |
-| 3 | 2 | 2 | 0 |
-
-This is a smoke-level stability check for the bundled example only.
-It is not a benchmark and should not be generalized to other targets.

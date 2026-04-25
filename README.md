@@ -92,7 +92,9 @@ The diagnosis artifact (`latest-diagnosis.json`) gives structured evidence for a
 }
 ```
 
-Fix the agent, rerun, confirm:
+Fix the agent and rerun. A green repair loop exits with code `3` — that
+means repair passed but the loop is not complete. Run `tinkerloop confirm`
+to finish:
 
 ```bash
 tinkerloop run --adapter ... --scenarios scenarios/ --failed-from artifacts/reports

@@ -74,8 +74,9 @@ tinkerloop \
   --scenarios /path/to/scenarios
 ```
 
-Expect exit code `3` when that repair run passes.
-That is the confirmation gate, not a failure in the repair loop itself.
+Expect exit code `3`. That means the repair loop passed; it does not mean
+the loop is complete. Run `tinkerloop confirm` (Step 6) to finish — without
+it, the result has not been validated against the real target agent.
 
 ## 6. Inspect Artifacts
 
