@@ -75,6 +75,33 @@ This keeps Tinkerloop:
 - concrete enough to be immediately useful
 - small enough to audit and extend
 
+## Hard Boundaries
+
+These rules apply to every change in Tinkerloop core and to every adapter.
+
+### Runtime Inspection
+
+Adapters may inspect:
+- target repo files
+- target repo env/config files
+- target repo code defaults
+- target repo runtime endpoints or deployed config that the adapter explicitly declares as part of the target system
+
+Adapters must not:
+- scan unrelated repos
+- perform machine-wide discovery
+- infer state from other projects
+- silently fall back on global heuristics
+
+### Invariants
+
+Every change must preserve:
+- core stays generic; target-specific logic stays in adapters or examples
+- runtime inspection is bounded to the target repo
+- inner-model selection is explicit; no silent guessing
+- no automatic production actions
+- deterministic checks remain the first-line gate
+
 ## `v0.x` Alpha Boundary
 
 For the current `alpha`, the architecture promise is intentionally narrow:
