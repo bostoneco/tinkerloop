@@ -118,16 +118,4 @@ The current `alpha` does not promise:
 - production-side execution surfaces
 - autonomous patch or deploy loops
 
-## Security Direction
-
-The long-term contract is stricter than the current stopgap.
-
-Tinkerloop should eventually integrate with target repos through a fixed target-driver contract:
-- target-owned
-- non-prod only
-- infrastructure-authenticated
-- no arbitrary code execution
-- no public backdoor endpoints
-
-For AWS apps, the preferred direction is a dedicated non-prod driver function invoked through IAM.
-That remains future work rather than a release blocker for the current `alpha`.
+Security posture and the long-term remote-driver direction live in [SECURITY.md](../SECURITY.md).

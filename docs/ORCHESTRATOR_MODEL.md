@@ -1,4 +1,4 @@
-# Actor Model
+# Orchestrator Model
 
 Tinkerloop has two distinct model roles:
 

@@ -232,11 +232,14 @@ Repair and confirmation artifacts are kept separate. A green repair loop is not 
 
 ## Docs
 
+- [Project Charter](docs/PROJECT_CHARTER.md) — goal, primary use case, non-goals
+- [Architecture](docs/ARCHITECTURE.md) — engine, adapter, scenarios, hard boundaries
 - [Quickstart: Target Repo](docs/QUICKSTART_TARGET_REPO.md) — minimal integration path
 - [Adapter Guide](docs/ADAPTER_GUIDE.md) — `PythonAppAdapter` vs `CommandAppAdapter` vs `AppAdapter`
 - [Target Contract](docs/TARGET_CONTRACT.md) — public integration boundary
-- [Actor Model](docs/ACTOR_MODEL.md) — inner target orchestrator vs outer coding model
+- [Orchestrator Model](docs/ORCHESTRATOR_MODEL.md) — inner target orchestrator vs outer coding model
 - [Trust Model](docs/TRUST_MODEL.md) — what pass/fail results mean and don't mean
+- [Working Agreement](docs/WORKING_AGREEMENT.md) — day-to-day workflow and run discipline
 - [Worked Example](docs/WORKED_EXAMPLE.md) — failure → diagnosis → rerun walkthrough
 - [Troubleshooting](docs/TROUBLESHOOTING.md) — first-run failure modes
 - [Stability](docs/STABILITY.md) — supported `v0.x` surface and experimental boundaries

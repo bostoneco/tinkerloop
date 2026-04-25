@@ -14,7 +14,7 @@ Start with:
 
 ## Default loop
 
-Actor boundary:
+Orchestrator boundary:
 - the outer coding model may patch and rerun
 - the inner target orchestrator is the system under test
 - do not let the outer coding model satisfy scenarios directly
