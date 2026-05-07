@@ -242,10 +242,10 @@ def test_main_writes_error_report_when_adapter_load_fails(monkeypatch, tmp_path,
     monkeypatch.setattr("tinkerloop.cli.load_adapter", fail_load_adapter)
     monkeypatch.setattr(
         "tinkerloop.cli.write_report",
-        lambda results, *, output_dir, metadata=None: captured.update(
-            {"results": results, "output_dir": output_dir, "metadata": metadata}
-        )
-        or Path(output_dir) / "latest.json",
+        lambda results, *, output_dir, metadata=None: (
+            captured.update({"results": results, "output_dir": output_dir, "metadata": metadata})
+            or Path(output_dir) / "latest.json"
+        ),
     )
 
     exit_code = main(
@@ -279,10 +279,10 @@ def test_main_writes_error_report_when_preflight_fails(monkeypatch, tmp_path, ca
     monkeypatch.setattr("tinkerloop.cli.load_adapter", lambda _factory_path: adapter)
     monkeypatch.setattr(
         "tinkerloop.cli.write_report",
-        lambda results, *, output_dir, metadata=None: captured.update(
-            {"results": results, "output_dir": output_dir, "metadata": metadata}
-        )
-        or Path(output_dir) / "latest.json",
+        lambda results, *, output_dir, metadata=None: (
+            captured.update({"results": results, "output_dir": output_dir, "metadata": metadata})
+            or Path(output_dir) / "latest.json"
+        ),
     )
 
     exit_code = main(
@@ -328,10 +328,10 @@ def test_main_writes_error_report_when_scenario_definition_is_invalid(
     )
     monkeypatch.setattr(
         "tinkerloop.cli.write_report",
-        lambda results, *, output_dir, metadata=None: captured.update(
-            {"results": results, "output_dir": output_dir, "metadata": metadata}
-        )
-        or Path(output_dir) / "latest.json",
+        lambda results, *, output_dir, metadata=None: (
+            captured.update({"results": results, "output_dir": output_dir, "metadata": metadata})
+            or Path(output_dir) / "latest.json"
+        ),
     )
 
     exit_code = main(
@@ -351,7 +351,10 @@ def test_main_writes_error_report_when_scenario_definition_is_invalid(
     assert exit_code == 2
     assert "must define at least one turn" in capsys.readouterr().err
     assert captured["results"] == []
-    assert captured["metadata"]["scenario_error"] == "Scenario `cleanup` must define at least one turn."
+    assert (
+        captured["metadata"]["scenario_error"]
+        == "Scenario `cleanup` must define at least one turn."
+    )
 
 
 def test_main_uses_failed_from_to_filter_scenarios(monkeypatch, tmp_path):
@@ -390,16 +393,18 @@ def test_main_uses_failed_from_to_filter_scenarios(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         "tinkerloop.cli.run_scenarios",
-        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: _passing_results(
-            [
-                scenario
-                for scenario in scenarios
-                if not scenario_filter or scenario.scenario_id in scenario_filter
-            ],
-            user_id=user_id,
-            capture=lambda scenario: captured.setdefault("scenario_ids", []).append(
-                scenario.scenario_id
-            ),
+        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: (
+            _passing_results(
+                [
+                    scenario
+                    for scenario in scenarios
+                    if not scenario_filter or scenario.scenario_id in scenario_filter
+                ],
+                user_id=user_id,
+                capture=lambda scenario: captured.setdefault("scenario_ids", []).append(
+                    scenario.scenario_id
+                ),
+            )
         ),
     )
     monkeypatch.setattr(
@@ -451,16 +456,18 @@ def test_main_passes_tag_filter(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         "tinkerloop.cli.run_scenarios",
-        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: _passing_results(
-            [
-                scenario
-                for scenario in scenarios
-                if not tag_filter or tag_filter.intersection(set(scenario.tags))
-            ],
-            user_id=user_id,
-            capture=lambda scenario: captured.setdefault("scenario_ids", []).append(
-                scenario.scenario_id
-            ),
+        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: (
+            _passing_results(
+                [
+                    scenario
+                    for scenario in scenarios
+                    if not tag_filter or tag_filter.intersection(set(scenario.tags))
+                ],
+                user_id=user_id,
+                capture=lambda scenario: captured.setdefault("scenario_ids", []).append(
+                    scenario.scenario_id
+                ),
+            )
         ),
     )
     monkeypatch.setattr(
@@ -513,12 +520,14 @@ def test_main_accepts_run_subcommand(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         "tinkerloop.cli.run_scenarios",
-        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: _passing_results(
-            scenarios,
-            user_id=user_id,
-            capture=lambda scenario: captured.update(
-                {"user_id": user_id, "scenario_id": scenario.scenario_id}
-            ),
+        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: (
+            _passing_results(
+                scenarios,
+                user_id=user_id,
+                capture=lambda scenario: captured.update(
+                    {"user_id": user_id, "scenario_id": scenario.scenario_id}
+                ),
+            )
         ),
     )
     monkeypatch.setattr(
@@ -569,21 +578,25 @@ def test_main_accepts_confirm_subcommand_and_writes_prefixed_artifacts(monkeypat
     )
     monkeypatch.setattr(
         "tinkerloop.cli.run_scenarios",
-        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: _passing_results(
-            scenarios,
-            user_id=user_id,
+        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: (
+            _passing_results(
+                scenarios,
+                user_id=user_id,
+            )
         ),
     )
     monkeypatch.setattr(
         "tinkerloop.cli.write_report",
-        lambda results, *, output_dir, metadata=None, artifact_prefix="": captured.update(
-            {
-                "output_dir": output_dir,
-                "metadata": metadata,
-                "artifact_prefix": artifact_prefix,
-            }
-        )
-        or Path(output_dir) / f"{artifact_prefix}latest.json",
+        lambda results, *, output_dir, metadata=None, artifact_prefix="": (
+            captured.update(
+                {
+                    "output_dir": output_dir,
+                    "metadata": metadata,
+                    "artifact_prefix": artifact_prefix,
+                }
+            )
+            or Path(output_dir) / f"{artifact_prefix}latest.json"
+        ),
     )
 
     exit_code = main(
@@ -629,26 +642,29 @@ def test_main_confirm_uses_prefixed_failed_from_reports(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         "tinkerloop.cli.load_failed_scenario_ids",
-        lambda _path, *, artifact_prefix="": captured.update(
-            {"failed_from_prefix": artifact_prefix}
-        )
-        or ["cleanup_preview_first_unit"],
+        lambda _path, *, artifact_prefix="": (
+            captured.update({"failed_from_prefix": artifact_prefix})
+            or ["cleanup_preview_first_unit"]
+        ),
     )
     monkeypatch.setattr(
         "tinkerloop.cli.run_scenarios",
-        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: _passing_results(
-            [
-                scenario
-                for scenario in scenarios
-                if not scenario_filter or scenario.scenario_id in scenario_filter
-            ],
-            user_id=user_id,
+        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: (
+            _passing_results(
+                [
+                    scenario
+                    for scenario in scenarios
+                    if not scenario_filter or scenario.scenario_id in scenario_filter
+                ],
+                user_id=user_id,
+            )
         ),
     )
     monkeypatch.setattr(
         "tinkerloop.cli.write_report",
-        lambda results, *, output_dir, metadata=None, artifact_prefix="": Path(output_dir)
-        / f"{artifact_prefix}latest.json",
+        lambda results, *, output_dir, metadata=None, artifact_prefix="": (
+            Path(output_dir) / f"{artifact_prefix}latest.json"
+        ),
     )
 
     exit_code = main(
@@ -778,9 +794,11 @@ def test_main_run_warns_when_confirmation_is_missing(monkeypatch, tmp_path, caps
     )
     monkeypatch.setattr(
         "tinkerloop.cli.run_scenarios",
-        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: _passing_results(
-            scenarios,
-            user_id=user_id,
+        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: (
+            _passing_results(
+                scenarios,
+                user_id=user_id,
+            )
         ),
     )
     monkeypatch.setattr(
@@ -841,15 +859,18 @@ def test_main_run_marks_confirmation_stale_when_confirm_artifact_exists(
     )
     monkeypatch.setattr(
         "tinkerloop.cli.run_scenarios",
-        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: _passing_results(
-            scenarios,
-            user_id=user_id,
+        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: (
+            _passing_results(
+                scenarios,
+                user_id=user_id,
+            )
         ),
     )
     monkeypatch.setattr(
         "tinkerloop.cli.write_report",
-        lambda results, *, output_dir, metadata=None: captured.update({"metadata": metadata})
-        or Path(output_dir) / "latest.json",
+        lambda results, *, output_dir, metadata=None: (
+            captured.update({"metadata": metadata}) or Path(output_dir) / "latest.json"
+        ),
     )
 
     exit_code = main(
@@ -910,15 +931,18 @@ def test_main_run_surfaces_blocked_confirmation_status_from_latest_confirm_attem
     )
     monkeypatch.setattr(
         "tinkerloop.cli.run_scenarios",
-        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: _passing_results(
-            scenarios,
-            user_id=user_id,
+        lambda scenarios, *, adapter, user_id, allow_destructive=False, scenario_filter=None, tag_filter=None: (
+            _passing_results(
+                scenarios,
+                user_id=user_id,
+            )
         ),
     )
     monkeypatch.setattr(
         "tinkerloop.cli.write_report",
-        lambda results, *, output_dir, metadata=None: captured.update({"metadata": metadata})
-        or Path(output_dir) / "latest.json",
+        lambda results, *, output_dir, metadata=None: (
+            captured.update({"metadata": metadata}) or Path(output_dir) / "latest.json"
+        ),
     )
 
     exit_code = main(
@@ -1043,7 +1067,10 @@ def test_main_help_lists_run_command(capsys):
     output = " ".join(capsys.readouterr().out.split())
     assert "run" in output
     assert "confirm" in output
-    assert "Use `tinkerloop run ...` for the repair loop or `tinkerloop confirm ...` for external validation." in output
+    assert (
+        "Use `tinkerloop run ...` for the repair loop or `tinkerloop confirm ...` for external validation."
+        in output
+    )
 
 
 def test_main_rejects_flag_only_invocation(capsys):

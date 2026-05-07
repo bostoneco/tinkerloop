@@ -137,7 +137,9 @@ def _load_module_attr(import_path: str, *, label: str) -> tuple[object, str, Any
     try:
         module = importlib.import_module(module_name)
     except ImportError as exc:
-        raise ImportError(f"Could not import module `{module_name}` for {label} `{import_path}`.") from exc
+        raise ImportError(
+            f"Could not import module `{module_name}` for {label} `{import_path}`."
+        ) from exc
     try:
         target = getattr(module, attr_name)
     except AttributeError as exc:

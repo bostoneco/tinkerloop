@@ -35,7 +35,9 @@ class FileTraceRecorder(TraceRecorder):
                 else:
                     payload = json.loads(raw_text)
                     if isinstance(payload, list):
-                        self.calls = [ToolTrace(**item) for item in payload if isinstance(item, dict)]
+                        self.calls = [
+                            ToolTrace(**item) for item in payload if isinstance(item, dict)
+                        ]
                     else:
                         error_message = f"Trace file must contain a JSON list: {self._trace_file}"
             else:
@@ -86,7 +88,9 @@ class CommandAppAdapter(AppAdapter):
         )
         if completed.returncode != 0:
             detail = (completed.stderr or completed.stdout).strip()
-            raise RuntimeError(detail or f"Target command failed with exit code {completed.returncode}")
+            raise RuntimeError(
+                detail or f"Target command failed with exit code {completed.returncode}"
+            )
         return completed.stdout.strip()
 
     def trace_recorder(self) -> TraceRecorder:

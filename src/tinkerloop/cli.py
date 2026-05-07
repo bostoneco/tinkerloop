@@ -351,7 +351,9 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         return root_parser.parse_args(argv)
     if argv[0].startswith("-"):
         root_parser.error("Missing command `run` or `confirm`.")
-    root_parser.error(f"Unknown command `{argv[0]}`. Use `tinkerloop run ...` or `tinkerloop confirm ...`.")
+    root_parser.error(
+        f"Unknown command `{argv[0]}`. Use `tinkerloop run ...` or `tinkerloop confirm ...`."
+    )
     raise AssertionError("root_parser.error should exit")
 
 
@@ -476,9 +478,11 @@ def _run_command(args: argparse.Namespace) -> int:
         )
     all_passed = all(result.passed for result in results)
     metadata["confirmation_status"] = (
-        "passing" if command == "confirm" and all_passed else
-        "failing" if command == "confirm" else
-        repair_confirmation_status
+        "passing"
+        if command == "confirm" and all_passed
+        else "failing"
+        if command == "confirm"
+        else repair_confirmation_status
     )
     write_kwargs = {"output_dir": args.report_dir, "metadata": metadata}
     if artifact_prefix:

@@ -160,7 +160,9 @@ def run_scenario(scenario: Scenario, *, adapter: AppAdapter, user_id: str) -> Sc
                     checks = _adapter_runtime_failure_checks(exc, trace_error=trace_error)
             else:
                 tool_traces = _safe_tool_traces(tracer)
-                checks = evaluate_checks(assistant=assistant, tool_traces=tool_traces, checks=turn.checks)
+                checks = evaluate_checks(
+                    assistant=assistant, tool_traces=tool_traces, checks=turn.checks
+                )
         passed = all(item.passed for item in checks)
         all_passed = all_passed and passed
         turns.append(
@@ -278,7 +280,9 @@ def _parse_scenario_payload(payload: Any, *, source: Path) -> Scenario:
 
     scenario_id = str(payload.get("scenario_id") or "").strip()
     if not scenario_id:
-        raise ScenarioDefinitionError(f"Scenario file `{source}` must define a non-empty `scenario_id`.")
+        raise ScenarioDefinitionError(
+            f"Scenario file `{source}` must define a non-empty `scenario_id`."
+        )
 
     raw_turns = payload.get("turns")
     if not isinstance(raw_turns, list) or not raw_turns:
@@ -304,7 +308,9 @@ def _parse_scenario_payload(payload: Any, *, source: Path) -> Scenario:
 
 def _parse_turn_payload(payload: Any, *, scenario_id: str, turn_index: int) -> ScenarioTurn:
     if not isinstance(payload, dict):
-        raise ScenarioDefinitionError(f"Scenario `{scenario_id}` turn {turn_index} must be an object.")
+        raise ScenarioDefinitionError(
+            f"Scenario `{scenario_id}` turn {turn_index} must be an object."
+        )
 
     user = str(payload.get("user") or "").strip()
     if not user:
@@ -316,7 +322,9 @@ def _parse_turn_payload(payload: Any, *, scenario_id: str, turn_index: int) -> S
     if raw_checks is None:
         raw_checks = []
     if not isinstance(raw_checks, list):
-        raise ScenarioDefinitionError(f"Scenario `{scenario_id}` turn {turn_index} must define `checks` as a list.")
+        raise ScenarioDefinitionError(
+            f"Scenario `{scenario_id}` turn {turn_index} must define `checks` as a list."
+        )
 
     checks: list[ScenarioCheck] = []
     for check_index, check_payload in enumerate(raw_checks, start=1):
@@ -330,7 +338,9 @@ def _parse_turn_payload(payload: Any, *, scenario_id: str, turn_index: int) -> S
             raise ScenarioDefinitionError(
                 f"Scenario `{scenario_id}` turn {turn_index} check {check_index} is invalid: {exc}"
             ) from exc
-        _validate_check(check, scenario_id=scenario_id, turn_index=turn_index, check_index=check_index)
+        _validate_check(
+            check, scenario_id=scenario_id, turn_index=turn_index, check_index=check_index
+        )
         checks.append(check)
 
     return ScenarioTurn(user=user, checks=checks)
@@ -349,10 +359,14 @@ def _validate_scenario(scenario: Scenario) -> None:
                 f"Scenario `{scenario_id}` turn {turn_index} must define a non-empty `user` prompt."
             )
         for check_index, check in enumerate(turn.checks, start=1):
-            _validate_check(check, scenario_id=scenario_id, turn_index=turn_index, check_index=check_index)
+            _validate_check(
+                check, scenario_id=scenario_id, turn_index=turn_index, check_index=check_index
+            )
 
 
-def _validate_check(check: ScenarioCheck, *, scenario_id: str, turn_index: int, check_index: int) -> None:
+def _validate_check(
+    check: ScenarioCheck, *, scenario_id: str, turn_index: int, check_index: int
+) -> None:
     if check.type not in SUPPORTED_CHECK_TYPES:
         raise ScenarioDefinitionError(
             f"Scenario `{scenario_id}` turn {turn_index} check {check_index} uses unsupported "
